@@ -3,7 +3,7 @@
   "minVersion": "0.8",
   "package": "com.kirisamey.toomanytinkers.mixin",
   "compatibilityLevel": "JAVA_17",
-  "refmap": "yourmodid.refmap.json",
+  "refmap": "toomanytinkers.refmap.json",
   "mixins": [
     "ToolModelMixin"
   ],

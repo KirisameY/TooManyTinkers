@@ -1,20 +1,38 @@
 package com.kirisamey.toomanytinkers.mixin;
 
+import com.kirisamey.toomanytinkers.rendering.TmtRenderTypes;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.Material;
+import net.minecraftforge.client.RenderTypeGroup;
+import net.minecraftforge.client.model.geometry.IGeometryBakingContext;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import slimeknights.tconstruct.library.client.materials.MaterialRenderInfo;
 import slimeknights.tconstruct.library.client.model.tools.ToolModel;
-import slimeknights.tconstruct.library.materials.definition.MaterialId;
 import slimeknights.tconstruct.library.materials.definition.MaterialVariantId;
 
 import java.util.function.Function;
 
 @Mixin(ToolModel.class)
 public class ToolModelMixin {
+
+
+    @WrapOperation(
+            method = "makeModelBuilder",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lslimeknights/mantle/client/model/util/MantleItemLayerModel;" +
+                            "getDefaultRenderType(" +
+                            "Lnet/minecraftforge/client/model/geometry/IGeometryBakingContext;)" +
+                            "Lnet/minecraftforge/client/RenderTypeGroup;"),
+            remap = false
+    )
+    private static RenderTypeGroup overrideRenderType(IGeometryBakingContext ctx, Operation<RenderTypeGroup> original) {
+        return TmtRenderTypes.getTinkerMappingGroup();
+    }
+
 
     @WrapOperation(
             method = "bakeInternal",
@@ -33,4 +51,5 @@ public class ToolModelMixin {
             Operation<MaterialRenderInfo.TintedSprite> original) {
         return new MaterialRenderInfo.TintedSprite(spriteGetter.apply(texture), -1, 0);
     }
+
 }
