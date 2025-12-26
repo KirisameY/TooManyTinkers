@@ -1,9 +1,11 @@
 package com.kirisamey.toomanytinkers.rendering;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraftforge.client.RenderTypeGroup;
 
 public class TmtRenderTypes extends RenderType {
@@ -25,11 +27,16 @@ public class TmtRenderTypes extends RenderType {
                 true,
                 true,
                 RenderType.CompositeState.builder()
-                        // 使用 Supplier 引用 Shader，这样即使 RenderType 先创建，Shader 后加载也没问题
                         .setShaderState(new RenderStateShard.ShaderStateShard(() -> TmtShaders.TinkerMappingShader))
-                        // ... 设置你的 TextureState (绑定 Sampler1) ...
+                        .setTextureState(new RenderStateShard.TextureStateShard(
+                                InventoryMenu.BLOCK_ATLAS,
+                                false, false
+                        ))
+                        // binding sampler
                         .setTextureState(new RenderStateShard.EmptyTextureStateShard(() -> {
                             // Setup logic
+                            RenderSystem.setShaderTexture(0, InventoryMenu.BLOCK_ATLAS);
+                            RenderSystem.bindTexture(RenderSystem.getShaderTexture(0));
                         }, () -> {
                             // Clear logic
                         }))
