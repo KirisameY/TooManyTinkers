@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.kirisamey.toomanytinkers.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "yourmodid.refmap.json",
+  "mixins": [
+    "ToolModelMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
