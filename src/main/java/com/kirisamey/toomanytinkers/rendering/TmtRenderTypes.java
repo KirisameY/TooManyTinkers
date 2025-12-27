@@ -3,8 +3,10 @@ package com.kirisamey.toomanytinkers.rendering;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.VertexFormat;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraftforge.client.RenderTypeGroup;
@@ -35,16 +37,17 @@ public class TmtRenderTypes extends RenderType {
                             RenderSystem.setShaderTexture(0, InventoryMenu.BLOCK_ATLAS);
                             RenderSystem.bindTexture(RenderSystem.getShaderTexture(0));
 
-                            RenderSystem.activeTexture(org.lwjgl.opengl.GL13.GL_TEXTURE1);
-                            ResourceLocation mapTexId = MaterialPaletteManager.MAT_TEX_ID;
-                            RenderSystem.setShaderTexture(1, mapTexId);
-                            RenderSystem.bindTexture(RenderSystem.getShaderTexture(1));
+                            RenderSystem.activeTexture(org.lwjgl.opengl.GL13.GL_TEXTURE3);
+
+                            ResourceLocation mapTexId = MaterialMapTextureManager.MAT_TEX_ID;
+                            RenderSystem.setShaderTexture(3, mapTexId);
+                            RenderSystem.bindTexture(RenderSystem.getShaderTexture(3));
 
                             RenderSystem.activeTexture(org.lwjgl.opengl.GL13.GL_TEXTURE0);
 
                         }, () -> {
                             // Clear logic
-                            RenderSystem.activeTexture(org.lwjgl.opengl.GL13.GL_TEXTURE1);
+                            RenderSystem.activeTexture(org.lwjgl.opengl.GL13.GL_TEXTURE3);
                             RenderSystem.bindTexture(0);
 
                             RenderSystem.activeTexture(org.lwjgl.opengl.GL13.GL_TEXTURE0);

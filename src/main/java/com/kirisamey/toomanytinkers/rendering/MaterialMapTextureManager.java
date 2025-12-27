@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.kirisamey.toomanytinkers.TooManyTinkers;
 import com.kirisamey.toomanytinkers.rendering.events.MaterialMapTextureUpdatedEvent;
+import com.kirisamey.toomanytinkers.utils.TmtColorUtils;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.logging.LogUtils;
 import lombok.Getter;
@@ -21,11 +22,11 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.EventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import oshi.util.tuples.Pair;
 import slimeknights.mantle.util.JsonHelper;
 import slimeknights.tconstruct.library.client.materials.MaterialRenderInfoLoader;
 
@@ -38,25 +39,27 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static com.ibm.icu.impl.ValidIdentifiers.Datatype.x;
-
-public class MaterialPaletteManager {
+public class MaterialMapTextureManager {
 
     // Singleton
-    private static MaterialPaletteManager instance;
+    private static MaterialMapTextureManager instance;
 
-    public static MaterialPaletteManager getInstance() {
-        LogUtils.getLogger().info("MaterialPaletteManager startup...");
-        if (instance == null) instance = new MaterialPaletteManager();
+    public static MaterialMapTextureManager getInstance() {
+        if (instance == null) {
+            LogUtils.getLogger().info("MaterialPaletteManager startup...");
+            instance = new MaterialMapTextureManager();
+        }
         return instance;
     }
 
 
-    private MaterialPaletteManager() {
+    private MaterialMapTextureManager() {
 
-        Minecraft.getInstance().getTextureManager().register(MAT_TEX_ID, MapTex);
-        LogUtils.getLogger().info("MatMap texture initialized in empty");
-        MapTex.upload();
+        Minecraft.getInstance().getTextureManager().register(MAT_TEX_ID, mapTex);
+        var getTex = Minecraft.getInstance().getTextureManager().getTexture(MAT_TEX_ID);
+        if (getTex == mapTex) LogUtils.getLogger().info("MatMap texture initialized in empty");
+        else LogUtils.getLogger().error("MatMap texture initialized error: get {}", getTex);
+        mapTex.getPixels().setPixelRGBA(0, 0, 0xFFFF00FF);
     }
 
 
@@ -66,7 +69,7 @@ public class MaterialPaletteManager {
     public static final ResourceLocation MAT_TEX_ID = ResourceLocation.fromNamespaceAndPath(TooManyTinkers.MODID, "dynamic/mat_map");
     @Getter private int texWidth;
     @Getter private int texHeigh;
-    private final DynamicTexture MapTex = new DynamicTexture(1, 1, true);
+    private DynamicTexture mapTex = new DynamicTexture(new NativeImage(1, 1, true));
 
     // </editor-fold>
 
@@ -76,7 +79,9 @@ public class MaterialPaletteManager {
     private static final List<ResourceLocation> MAT1D_LST = new ArrayList<>();
     private static final Map<ResourceLocation, Integer> MAT1D_MAP = new HashMap<>();
 
-    @Getter private static int unitsFor1D;
+    private static final List<ResourceLocation> MAT3D_LST = new ArrayList<>();
+    private static final Map<ResourceLocation, Integer> MAT3D_MAP = new HashMap<>();
+
 
     private static int tryAddMat1DMap(ResourceLocation location) {
         var index = MAT1D_LST.size();
@@ -85,109 +90,17 @@ public class MaterialPaletteManager {
         return index;
     }
 
-    // </editor-fold>
+    public static Pair<MatType, Integer> getTexInfo(ResourceLocation location) {
+        var id = MAT1D_MAP.getOrDefault(location, -1);
 
-
-    // <editor-fold desc="Update">
-
-    private void apply(@NotNull MaterialInfos materialInfos,
-                       @NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profilerFiller) {
-
-        clearMaps(); // clear map data
-
-        // calculate size of buffer
-        var count1D = materialInfos.mat1DInfos().size();
-        unitsFor1D = (int) Math.ceil(((double) count1D) / TEX_UNIT);
-        var unitsFor3D = materialInfos.mat3DInfos().stream().mapToInt(Mat3DInfo::frames).sum();
-        var totalUnits = unitsFor1D + unitsFor3D;
-        {
-            var sqrtCeil = Math.ceil(Math.sqrt(totalUnits));
-            var size = 1;
-            while (size < sqrtCeil) {
-                size *= 2;
-            }
-            texHeigh = size;
-            texWidth = size * size / 2 >= totalUnits ? size / 2 : size;
-            LogUtils.getLogger().info("MatMap texture reinitialized with size {}, {} ({}, {})",
-                    texWidth, texHeigh, texWidth * TEX_UNIT, texHeigh * TEX_UNIT);
+        var is3d = id < 0;
+        if (is3d) {
+            id = MAT3D_MAP.getOrDefault(location, -1);
         }
 
-        var buffer = new NativeImage(texWidth * TEX_UNIT, texHeigh * TEX_UNIT, true);
+        var got = id >= 0;
 
-
-        for /* those for 1D */ (var mat1 : materialInfos.mat1DInfos()) {
-            // validate
-            if (mat1.colorMaps().isEmpty()) {
-                LogUtils.getLogger().error("1D Material {} has an empty color map!", mat1.location());
-                continue;
-            }
-
-            // try to add to map & calculate position
-            var index = tryAddMat1DMap(mat1.location);
-            if (index < 0) {
-                LogUtils.getLogger().warn("1D Material {} did not added to map, there is duplicated already exists? But why?", mat1.location());
-                continue;
-            }
-
-            var row = index % (texHeigh * TEX_UNIT);
-            var col = index / (texHeigh * TEX_UNIT);
-
-            // set in tex
-            { // append last map if it needs
-                var lastMap = mat1.colorMaps.get(mat1.colorMaps.size() - 1);
-                if (lastMap.grey < 255) {
-                    mat1.colorMaps.add(new Mat1DInfo.ColorMap(lastMap.color, 255));
-                }
-            }
-            var first = mat1.colorMaps().get(0);
-            Mat1DInfo.ColorMap lastColor = first.grey == 0 ? null : new Mat1DInfo.ColorMap(first.color, 0);
-            for (var colorMap : mat1.colorMaps()) {
-                final var last = lastColor;
-                if (lastColor != null) {
-                    var d = colorMap.grey - lastColor.grey;
-                    if (d <= 0) continue;
-                    IntStream.rangeClosed(lastColor.grey, colorMap.grey).forEach(grey -> {
-                        if (grey < 0 || grey > 255) return;
-                        //noinspection UnnecessaryLocalVariable
-                        var y = row;
-                        var x = col * TEX_UNIT + grey;
-                        var lerp = ((float) (grey - last.grey)) / d;
-                        var color = FastColor.ARGB32.lerp(lerp, last.color, colorMap.color);
-                        buffer.setPixelRGBA(x, y, color);
-                    });
-                }
-                lastColor = colorMap;
-            }
-
-            LogUtils.getLogger().info("1D Material {} mapped successfully", mat1.location());
-        }
-
-
-        {
-            // for test
-            var runDir = Minecraft.getInstance().gameDirectory;
-            var testDir = new File(runDir, "debug");
-            if (testDir.exists() || testDir.mkdirs()) {
-                var outFile = new File(testDir, "tmt_map.png");
-                try {
-                    buffer.writeToFile(outFile);
-                } catch (IOException e) {
-                    LogUtils.getLogger().error("test image save error", e);
-                }
-            }
-        }
-
-        MapTex.setPixels(buffer);
-        MapTex.upload();
-
-        // fire the event
-        LogUtils.getLogger().debug("Fire the MaterialMapTextureUpdatedEvent");
-        MinecraftForge.EVENT_BUS.post(new MaterialMapTextureUpdatedEvent());
-    }
-
-    private void clearMaps() {
-        MAT1D_LST.clear();
-        MAT1D_MAP.clear();
+        return new Pair<>(got ? (is3d ? MatType.Mat3D : MatType.Mat1D) : MatType.NotFound, id);
     }
 
     // </editor-fold>
@@ -266,6 +179,7 @@ public class MaterialPaletteManager {
             }
         }
 
+        // todo: 把填表、计算材质尺寸和配ID都移动到这里
         return new MaterialInfos(mat1DInfos, mat3DInfos, matInheritedInfos);
     }
 
@@ -311,6 +225,116 @@ public class MaterialPaletteManager {
     // </editor-fold>
 
 
+    // <editor-fold desc="Update Texture">
+
+    private void apply(@NotNull MaterialInfos materialInfos,
+                       @NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profilerFiller) {
+
+        clearMaps(); // clear map data
+
+        // calculate size of buffer
+        var count1D = materialInfos.mat1DInfos().size();
+        var unitsFor1D = (int) Math.ceil(((double) count1D) / TEX_UNIT);
+        var unitsFor3D = materialInfos.mat3DInfos().stream().mapToInt(Mat3DInfo::frames).sum();
+        var totalUnits = unitsFor1D + unitsFor3D;
+        {
+            var sqrtCeil = Math.ceil(Math.sqrt(totalUnits));
+            var size = 1;
+            while (size < sqrtCeil) {
+                size *= 2;
+            }
+            texHeigh = size;
+            texWidth = size * size / 2 >= totalUnits ? size / 2 : size;
+            LogUtils.getLogger().info("MatMap texture reinitialized with size {}, {} ({}, {})",
+                    texWidth, texHeigh, texWidth * TEX_UNIT, texHeigh * TEX_UNIT);
+        }
+
+        var buffer = new NativeImage(texWidth * TEX_UNIT, texHeigh * TEX_UNIT, true);
+
+
+        for /* those for 1D */ (var mat1 : materialInfos.mat1DInfos()) {
+            // validate
+            if (mat1.colorMaps().isEmpty()) {
+                LogUtils.getLogger().error("1D Material {} has an empty color map!", mat1.location());
+                continue;
+            }
+
+            // try to add to map & calculate position
+            var index = tryAddMat1DMap(mat1.location);
+            if (index < 0) {
+                LogUtils.getLogger().warn("1D Material {} did not added to map, there is duplicated already exists? But why?", mat1.location());
+                continue;
+            }
+
+            var row = index % (texHeigh * TEX_UNIT);
+            var col = index / (texHeigh * TEX_UNIT);
+
+            // set in tex
+            { // append last map if it needs
+                var lastMap = mat1.colorMaps.get(mat1.colorMaps.size() - 1);
+                if (lastMap.grey < 255) {
+                    mat1.colorMaps.add(new Mat1DInfo.ColorMap(lastMap.color, 255));
+                }
+            }
+            var first = mat1.colorMaps().get(0);
+            Mat1DInfo.ColorMap lastColor = first.grey == 0 ? null : new Mat1DInfo.ColorMap(first.color, 0);
+            for (var colorMap : mat1.colorMaps()) {
+                final var last = lastColor;
+                if (lastColor != null) {
+                    var d = colorMap.grey - lastColor.grey;
+                    if (d <= 0) continue;
+                    IntStream.rangeClosed(lastColor.grey, colorMap.grey).forEach(grey -> {
+                        if (grey < 0 || grey > 255) return;
+                        //noinspection UnnecessaryLocalVariable
+                        var y = row;
+                        var x = col * TEX_UNIT + grey;
+                        var lerp = ((float) (grey - last.grey)) / d;
+                        var color = FastColor.ARGB32.lerp(lerp, last.color, colorMap.color);
+                        buffer.setPixelRGBA(x, y, TmtColorUtils.Argb2Abgr(color));
+                    });
+                }
+                lastColor = colorMap;
+            }
+
+            LogUtils.getLogger().info("1D Material {} mapped successfully", mat1.location());
+        }
+
+        mapTex.close();
+        mapTex = new DynamicTexture(buffer);
+        Minecraft.getInstance().getTextureManager().release(MAT_TEX_ID);
+        Minecraft.getInstance().getTextureManager().register(MAT_TEX_ID, mapTex);
+        mapTex.upload();
+        // mojang 扫码了，不换tex只换掉image的话根本没法upload到gpu，我觉得我不得不创建锌纹理然后重新绑定了，妈的不早说
+
+        {
+            // for test
+            var runDir = Minecraft.getInstance().gameDirectory;
+            var testDir = new File(runDir, "debug");
+            if (testDir.exists() || testDir.mkdirs()) {
+                var outFile = new File(testDir, "tmt_map.png");
+                try {
+                    if (mapTex.getPixels() != null) {
+                        mapTex.getPixels().writeToFile(outFile);
+                    }
+                } catch (IOException e) {
+                    LogUtils.getLogger().error("test image save error", e);
+                }
+            }
+        }
+
+        // fire the event
+        LogUtils.getLogger().debug("Fire the MaterialMapTextureUpdatedEvent");
+        MinecraftForge.EVENT_BUS.post(new MaterialMapTextureUpdatedEvent());
+    }
+
+    private void clearMaps() {
+        MAT1D_LST.clear();
+        MAT1D_MAP.clear();
+    }
+
+    // </editor-fold>
+
+
     // <editor-fold desc="Data Class">
 
     public record Mat1DInfo(ResourceLocation location, List<ColorMap> colorMaps) {
@@ -339,12 +363,12 @@ public class MaterialPaletteManager {
 
         @Override
         protected @NotNull MaterialInfos prepare(@NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profilerFiller) {
-            return MaterialPaletteManager.prepare(resourceManager, profilerFiller);
+            return MaterialMapTextureManager.prepare(resourceManager, profilerFiller);
         }
 
         @Override
         protected void apply(@NotNull MaterialInfos materialInfos, @NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profilerFiller) {
-            MaterialPaletteManager.getInstance().apply(materialInfos, resourceManager, profilerFiller);
+            MaterialMapTextureManager.getInstance().apply(materialInfos, resourceManager, profilerFiller);
         }
 
         @Override public @NotNull String getName() {
@@ -361,7 +385,7 @@ public class MaterialPaletteManager {
     public static class ModEventSubscriber {
         @SubscribeEvent
         public static void onRegisterReloadListeners(@NotNull RegisterClientReloadListenersEvent event) {
-            event.registerReloadListener(new MaterialPaletteManager.ReloadListener());
+            event.registerReloadListener(new MaterialMapTextureManager.ReloadListener());
         }
     }
 
@@ -377,4 +401,8 @@ public class MaterialPaletteManager {
 
     // </editor-fold>
 
+
+    public enum MatType {
+        NotFound, Mat1D, Mat3D,
+    }
 }
