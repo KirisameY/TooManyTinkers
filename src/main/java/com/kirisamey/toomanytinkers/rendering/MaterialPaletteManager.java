@@ -4,31 +4,41 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.kirisamey.toomanytinkers.TooManyTinkers;
+import com.kirisamey.toomanytinkers.rendering.events.MaterialMapTextureUpdatedEvent;
+import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.logging.LogUtils;
+import lombok.Getter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
+import net.minecraft.util.FastColor;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import org.apache.commons.lang3.NotImplementedException;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import slimeknights.mantle.util.JsonHelper;
 import slimeknights.tconstruct.library.client.materials.MaterialRenderInfoLoader;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
-public class MaterialPaletteManager extends SimplePreparableReloadListener<MaterialPaletteManager.MaterialInfos> {
+import static com.ibm.icu.impl.ValidIdentifiers.Datatype.x;
+
+public class MaterialPaletteManager {
 
     // Singleton
     private static MaterialPaletteManager instance;
@@ -41,27 +51,152 @@ public class MaterialPaletteManager extends SimplePreparableReloadListener<Mater
 
 
     private MaterialPaletteManager() {
-        Minecraft.getInstance().getTextureManager().register(MAT_TEX_ID, MAT_TEX);
+
+        Minecraft.getInstance().getTextureManager().register(MAT_TEX_ID, MapTex);
+        LogUtils.getLogger().info("MatMap texture initialized in empty");
+        MapTex.upload();
     }
 
 
     // <editor-fold desc="Texture">
 
-    public static final int TEX_WIDTH = 8192;
-    public static final int TEX_HEIGH = 8192;
+    public static final int TEX_UNIT = 256;
     public static final ResourceLocation MAT_TEX_ID = ResourceLocation.fromNamespaceAndPath(TooManyTinkers.MODID, "dynamic/mat_map");
-    private static final DynamicTexture MAT_TEX = new DynamicTexture(TEX_WIDTH, TEX_HEIGH, true);
+    @Getter private int texWidth;
+    @Getter private int texHeigh;
+    private final DynamicTexture MapTex = new DynamicTexture(1, 1, true);
 
     // </editor-fold>
 
 
-    // <editor-fold desc="Listening">
+    // <editor-fold desc="Material Maps">
 
-    @Override
-    protected @NotNull MaterialInfos prepare(@NotNull ResourceManager resourceManager,
-                                             @NotNull ProfilerFiller profilerFiller) {
+    private static final List<ResourceLocation> MAT1D_LST = new ArrayList<>();
+    private static final Map<ResourceLocation, Integer> MAT1D_MAP = new HashMap<>();
+
+    @Getter private static int unitsFor1D;
+
+    private static int tryAddMat1DMap(ResourceLocation location) {
+        var index = MAT1D_LST.size();
+        if (MAT1D_MAP.putIfAbsent(location, index) != null) return -1;
+        MAT1D_LST.add(location);
+        return index;
+    }
+
+    // </editor-fold>
+
+
+    // <editor-fold desc="Update">
+
+    private void apply(@NotNull MaterialInfos materialInfos,
+                       @NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profilerFiller) {
+
+        clearMaps(); // clear map data
+
+        // calculate size of buffer
+        var count1D = materialInfos.mat1DInfos().size();
+        unitsFor1D = (int) Math.ceil(((double) count1D) / TEX_UNIT);
+        var unitsFor3D = materialInfos.mat3DInfos().stream().mapToInt(Mat3DInfo::frames).sum();
+        var totalUnits = unitsFor1D + unitsFor3D;
+        {
+            var sqrtCeil = Math.ceil(Math.sqrt(totalUnits));
+            var size = 1;
+            while (size < sqrtCeil) {
+                size *= 2;
+            }
+            texHeigh = size;
+            texWidth = size * size / 2 >= totalUnits ? size / 2 : size;
+            LogUtils.getLogger().info("MatMap texture reinitialized with size {}, {} ({}, {})",
+                    texWidth, texHeigh, texWidth * TEX_UNIT, texHeigh * TEX_UNIT);
+        }
+
+        var buffer = new NativeImage(texWidth * TEX_UNIT, texHeigh * TEX_UNIT, true);
+
+
+        for /* those for 1D */ (var mat1 : materialInfos.mat1DInfos()) {
+            // validate
+            if (mat1.colorMaps().isEmpty()) {
+                LogUtils.getLogger().error("1D Material {} has an empty color map!", mat1.location());
+                continue;
+            }
+
+            // try to add to map & calculate position
+            var index = tryAddMat1DMap(mat1.location);
+            if (index < 0) {
+                LogUtils.getLogger().warn("1D Material {} did not added to map, there is duplicated already exists? But why?", mat1.location());
+                continue;
+            }
+
+            var row = index % (texHeigh * TEX_UNIT);
+            var col = index / (texHeigh * TEX_UNIT);
+
+            // set in tex
+            { // append last map if it needs
+                var lastMap = mat1.colorMaps.get(mat1.colorMaps.size() - 1);
+                if (lastMap.grey < 255) {
+                    mat1.colorMaps.add(new Mat1DInfo.ColorMap(lastMap.color, 255));
+                }
+            }
+            var first = mat1.colorMaps().get(0);
+            Mat1DInfo.ColorMap lastColor = first.grey == 0 ? null : new Mat1DInfo.ColorMap(first.color, 0);
+            for (var colorMap : mat1.colorMaps()) {
+                final var last = lastColor;
+                if (lastColor != null) {
+                    var d = colorMap.grey - lastColor.grey;
+                    if (d <= 0) continue;
+                    IntStream.rangeClosed(lastColor.grey, colorMap.grey).forEach(grey -> {
+                        if (grey < 0 || grey > 255) return;
+                        //noinspection UnnecessaryLocalVariable
+                        var y = row;
+                        var x = col * TEX_UNIT + grey;
+                        var lerp = ((float) (grey - last.grey)) / d;
+                        var color = FastColor.ARGB32.lerp(lerp, last.color, colorMap.color);
+                        buffer.setPixelRGBA(x, y, color);
+                    });
+                }
+                lastColor = colorMap;
+            }
+
+            LogUtils.getLogger().info("1D Material {} mapped successfully", mat1.location());
+        }
+
+
+        {
+            // for test
+            var runDir = Minecraft.getInstance().gameDirectory;
+            var testDir = new File(runDir, "debug");
+            if (testDir.exists() || testDir.mkdirs()) {
+                var outFile = new File(testDir, "tmt_map.png");
+                try {
+                    buffer.writeToFile(outFile);
+                } catch (IOException e) {
+                    LogUtils.getLogger().error("test image save error", e);
+                }
+            }
+        }
+
+        MapTex.setPixels(buffer);
+        MapTex.upload();
+
+        // fire the event
+        MinecraftForge.EVENT_BUS.post(new MaterialMapTextureUpdatedEvent());
+    }
+
+    private void clearMaps() {
+        MAT1D_LST.clear();
+        MAT1D_MAP.clear();
+    }
+
+    // </editor-fold>
+
+
+    // <editor-fold desc="Data Parsing">
+
+    private static @NotNull MaterialInfos prepare(@NotNull ResourceManager resourceManager,
+                                                  @NotNull ProfilerFiller profilerFiller) {
         // "first, we need to fetch all relevant JSON files"
         //                                          —— Slime Knights
+        // So, let's do this
         Map<ResourceLocation, JsonElement> jsons = new HashMap<>();
         SimpleJsonResourceReloadListener.scanDirectory(resourceManager, MaterialRenderInfoLoader.FOLDER, JsonHelper.DEFAULT_GSON, jsons);
 
@@ -147,10 +282,10 @@ public class MaterialPaletteManager extends SimplePreparableReloadListener<Mater
                 var grey = cm.get("grey").getAsInt();
                 var color = Integer.parseUnsignedInt(c, 16);
                 return new Mat1DInfo.ColorMap(color, grey);
-            }).toList();
+            }).collect(Collectors.toCollection(ArrayList::new));
 
             LogUtils.getLogger().info("Read 1D material info {} succeed!", location);
-            return new Mat1DInfo(colorMaps);
+            return new Mat1DInfo(location, colorMaps);
 
         } catch (IllegalStateException | NullPointerException | UnsupportedOperationException |
                  ClassCastException | NumberFormatException e) {
@@ -170,37 +305,18 @@ public class MaterialPaletteManager extends SimplePreparableReloadListener<Mater
         return null;
     }
 
-    @Override
-    protected void apply(@NotNull MaterialInfos materialInfos,
-                         @NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profilerFiller) {
-
-    }
-
-    // </editor-fold>
-
-
-    // <editor-fold desc="Event">
-
-    @Mod.EventBusSubscriber(modid = TooManyTinkers.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
-    public static class EventSubscriber {
-        @SubscribeEvent
-        public static void onRegisterReloadListeners(@NotNull RegisterClientReloadListenersEvent event) {
-            event.registerReloadListener(MaterialPaletteManager.getInstance());
-        }
-    }
-
     // </editor-fold>
 
 
     // <editor-fold desc="Data Class">
 
-    public record Mat1DInfo(List<ColorMap> colorMaps) {
+    public record Mat1DInfo(ResourceLocation location, List<ColorMap> colorMaps) {
         public record ColorMap(int color, int grey) {
 
         }
     }
 
-    public record Mat3DInfo() {
+    public record Mat3DInfo(ResourceLocation location, int frames) {
     }
 
     public record MatInheritedInfo(ResourceLocation mat, ResourceLocation parent) {
@@ -212,4 +328,40 @@ public class MaterialPaletteManager extends SimplePreparableReloadListener<Mater
     }
 
     // </editor-fold>
+
+
+    // <editor-fold desc="Listening">
+
+    public static class ReloadListener extends SimplePreparableReloadListener<MaterialInfos> {
+
+        @Override
+        protected @NotNull MaterialInfos prepare(@NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profilerFiller) {
+            return MaterialPaletteManager.prepare(resourceManager, profilerFiller);
+        }
+
+        @Override
+        protected void apply(@NotNull MaterialInfos materialInfos, @NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profilerFiller) {
+            MaterialPaletteManager.getInstance().apply(materialInfos, resourceManager, profilerFiller);
+        }
+
+        @Override public @NotNull String getName() {
+            return "TMT Material Palette Update Listener";
+        }
+    }
+
+    // </editor-fold>
+
+
+    // <editor-fold desc="Event Handlers">
+
+    @Mod.EventBusSubscriber(modid = TooManyTinkers.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
+    public static class EventSubscriber {
+        @SubscribeEvent
+        public static void onRegisterReloadListeners(@NotNull RegisterClientReloadListenersEvent event) {
+            event.registerReloadListener(new MaterialPaletteManager.ReloadListener());
+        }
+    }
+
+    // </editor-fold>
+
 }

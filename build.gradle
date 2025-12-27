@@ -166,6 +166,8 @@ dependencies {
 
     // mods
     implementation fg.deobf("curse.maven:tinkers-construct-74072:6777068")
+//    compileOnly fg.deobf("curse.maven:tinkers-construct-74072:6777068")
+//    runtimeOnly fg.deobf("curse.maven:tinkers-construct-74072:7371800")
     implementation fg.deobf("curse.maven:mantle-74924:6819217")
 
     // tools
