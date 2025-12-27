@@ -1,7 +1,8 @@
 #version 150
 
 uniform sampler2D Sampler0; // GrayScale / FullTex
-uniform sampler2D Sampler3; // Map
+uniform sampler2D Sampler2; // LightMap
+uniform sampler2D Sampler3; // TexMap
 uniform vec4 ColorModulator;
 
 uniform vec2 AtlasSize;
@@ -12,6 +13,7 @@ in vec4 vertexColor; // out data
 in vec2 texCoord0;
 in vec2 texCoord2;
 in vec4 normal;
+in vec4 light_color;
 
 out vec4 fragColor;
 
@@ -46,7 +48,7 @@ void main() {
         vec2 uv1d = unit * 256. + vec2(originSample.r * 255., row) + vec2(.5, .5);
         uv1d /= MapSize;
         vec4 color1d = texture(Sampler3, uv1d);
-        finalColor = color1d * ColorModulator;
+        finalColor = color1d;
         //finalColor = vec4(vertexColor.rgb, 1) + step(100, color1d);
     }
     else {
@@ -55,12 +57,13 @@ void main() {
         vec2 uv = mod(texCoord0 * AtlasSize, uvSize) / uvSize;
 
         // todo: sample 2d color
-        finalColor = vec4(1, uv, 1) * originSample * ColorModulator;
+        finalColor = vec4(1, uv, 1) * originSample;
     }
 
-    //    if (finalColor.a < 0.05) {
-    //        discard;
-    //    }
+    if (finalColor.a < 0.05) {
+        discard;
+    }
+
+    finalColor = finalColor * light_color * ColorModulator;
     fragColor = finalColor;
-    // todo: 没做光影，我得想办法补上
 }

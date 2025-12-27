@@ -7,6 +7,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraftforge.client.RenderTypeGroup;
@@ -38,7 +39,6 @@ public class TmtRenderTypes extends RenderType {
                             RenderSystem.bindTexture(RenderSystem.getShaderTexture(0));
 
                             RenderSystem.activeTexture(org.lwjgl.opengl.GL13.GL_TEXTURE3);
-
                             ResourceLocation mapTexId = MaterialMapTextureManager.MAT_TEX_ID;
                             RenderSystem.setShaderTexture(3, mapTexId);
                             RenderSystem.bindTexture(RenderSystem.getShaderTexture(3));
