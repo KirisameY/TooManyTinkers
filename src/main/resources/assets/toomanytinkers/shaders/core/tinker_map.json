@@ -27,6 +27,7 @@
     },
     { "name": "ColorModulator", "type": "float", "count": 4, "values": [ 1.0, 1.0, 1.0, 1.0 ] },
     { "name": "Light0_Direction", "type": "float", "count": 3, "values": [0.0, 1.0, 0.0] },
-    { "name": "Light1_Direction", "type": "float", "count": 3, "values": [0.0, 1.0, 0.0] }
+    { "name": "Light1_Direction", "type": "float", "count": 3, "values": [0.0, 1.0, 0.0] },
+    { "name": "AtlasSize", "type": "float", "count": 2, "values": [ 16.0, 16.0 ] }
   ]
 }

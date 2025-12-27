@@ -28,11 +28,7 @@ public class TmtRenderTypes extends RenderType {
                 true,
                 true,
                 RenderType.CompositeState.builder()
-                        .setShaderState(new RenderStateShard.ShaderStateShard(() -> TmtShaders.TinkerMappingShader))
-                        .setTextureState(new RenderStateShard.TextureStateShard(
-                                InventoryMenu.BLOCK_ATLAS,
-                                false, false
-                        ))
+                        .setShaderState(new RenderStateShard.ShaderStateShard(TmtShaders::setUpTinkerMappingShader))
                         // binding sampler
                         .setTextureState(new RenderStateShard.EmptyTextureStateShard(() -> {
                             // Setup logic
@@ -48,6 +44,10 @@ public class TmtRenderTypes extends RenderType {
 
                         }, () -> {
                             // Clear logic
+                            RenderSystem.activeTexture(org.lwjgl.opengl.GL13.GL_TEXTURE1);
+                            RenderSystem.bindTexture(0);
+
+                            RenderSystem.activeTexture(org.lwjgl.opengl.GL13.GL_TEXTURE0);
                         }))
                         .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
                         .setCullState(NO_CULL)

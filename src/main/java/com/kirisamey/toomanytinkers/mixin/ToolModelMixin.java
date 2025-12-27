@@ -49,7 +49,7 @@ public class ToolModelMixin {
     private static MaterialRenderInfo.TintedSprite forceGrayMaterialSprite(
             Function<Material, TextureAtlasSprite> spriteGetter, Material texture, MaterialVariantId material,
             Operation<MaterialRenderInfo.TintedSprite> original) {
-        var vtx = 0xffff8800; // todo: 替换为相应数据
+        var vtx = -1; // todo: 替换为相应数据
         return new MaterialRenderInfo.TintedSprite(spriteGetter.apply(texture), vtx, 0);
     }
 

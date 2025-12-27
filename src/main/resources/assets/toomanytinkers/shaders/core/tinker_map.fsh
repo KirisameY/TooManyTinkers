@@ -3,9 +3,7 @@
 uniform sampler2D Sampler0; // GrayScale / FullTex
 uniform sampler2D Sampler1; // Pallet
 uniform vec4 ColorModulator;
-uniform float FogStart;
-uniform float FogEnd;
-uniform vec4 FogColor;
+uniform vec2 AtlasSize;
 
 in float vertexDistance;
 in vec4 vertexColor; // out data
@@ -48,8 +46,9 @@ void main() {
     //
     //    fragColor = color;
 
+    vec2 uv = mod(texCoord0 * AtlasSize, 16.) / 16.;
     vec4 originSample = texture(Sampler0, texCoord0);
-    fragColor = vec4(1, texCoord0, 1) * originSample;
+    fragColor = vec4(1, uv, 1) * originSample;
 
     if (originSample.a < 0.05) {
         discard;

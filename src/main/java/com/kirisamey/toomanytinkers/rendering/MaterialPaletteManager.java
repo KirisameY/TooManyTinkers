@@ -20,6 +20,8 @@ import net.minecraft.util.profiling.ProfilerFiller;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.TickEvent;
+import net.minecraftforge.eventbus.EventBus;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.jetbrains.annotations.NotNull;
@@ -179,6 +181,7 @@ public class MaterialPaletteManager {
         MapTex.upload();
 
         // fire the event
+        LogUtils.getLogger().debug("Fire the MaterialMapTextureUpdatedEvent");
         MinecraftForge.EVENT_BUS.post(new MaterialMapTextureUpdatedEvent());
     }
 
@@ -355,10 +358,20 @@ public class MaterialPaletteManager {
     // <editor-fold desc="Event Handlers">
 
     @Mod.EventBusSubscriber(modid = TooManyTinkers.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.MOD)
-    public static class EventSubscriber {
+    public static class ModEventSubscriber {
         @SubscribeEvent
         public static void onRegisterReloadListeners(@NotNull RegisterClientReloadListenersEvent event) {
             event.registerReloadListener(new MaterialPaletteManager.ReloadListener());
+        }
+    }
+
+    @Mod.EventBusSubscriber(modid = TooManyTinkers.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+    public static class MaterialMapTextureInitializedResender {
+        @SubscribeEvent()
+        public static void onClientTick(TickEvent.ClientTickEvent e) {
+            MinecraftForge.EVENT_BUS.unregister(MaterialMapTextureInitializedResender.class);
+            // 补发第一次事件
+            MinecraftForge.EVENT_BUS.post(new MaterialMapTextureUpdatedEvent());
         }
     }
 
