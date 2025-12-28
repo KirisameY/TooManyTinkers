@@ -49,8 +49,8 @@ public class TmtShaders {
             LogUtils.getLogger().debug("Set AtlasSize: ({}, {})", atlasWidth, atlasHeight);
 
             // 获取映射尺寸
-            mapWidth = MaterialMapTextureManager.getInstance().getTexWidth() * MaterialMapTextureManager.TEX_UNIT;
-            mapHeight = MaterialMapTextureManager.getInstance().getTexHeigh() * MaterialMapTextureManager.TEX_UNIT;
+            mapWidth = MaterialMapTextureManager.getTexWidth() * MaterialMapTextureManager.TEX_UNIT;
+            mapHeight = MaterialMapTextureManager.getTexHeigh() * MaterialMapTextureManager.TEX_UNIT;
             LogUtils.getLogger().debug("Set MapSize: ({}, {})", mapWidth, mapHeight);
         }
     }

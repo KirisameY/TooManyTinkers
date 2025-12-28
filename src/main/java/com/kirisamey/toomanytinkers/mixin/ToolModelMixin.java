@@ -100,7 +100,7 @@ public class ToolModelMixin {
         if (is3D) a -= 0x40;
         if (isLarge) a -= 0x20;
 
-        var h = MaterialMapTextureManager.getInstance().getTexHeigh();
+        var h = MaterialMapTextureManager.getTexHeigh();
 
         int r, g, b;
         if (!is3D) {
