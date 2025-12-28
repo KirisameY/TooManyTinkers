@@ -26,8 +26,46 @@ in vec4 normal;
 
 out vec4 fragColor;
 
+// 0 - 非测试
+// 1 - 覆盖测试
+// 2 - UV测试
+// 3 - 原始纹理
+#define TEST 0
 
 void main() {
+
+    #if TEST == 1
+
+    // 覆盖测试
+    if (texture(Sampler0, texCoord0).a < 0.05) {
+        discard;
+    }
+    fragColor = vec4(1.);
+
+    #elif TEST == 2
+
+    // UV测试
+    float f_uv16or32 = step(31.5, mod(mapping_data.a * 255, 64));
+    float uvSize = 32. - f_uv16or32 * 16.;
+    vec2 uv = mod(texCoord0 * AtlasSize, uvSize) / uvSize;
+    fragColor = vec4(1., uv, 1.);
+
+    #elif TEST == 3
+
+    // 原始纹理
+    vec4 origin = texture(Sampler0, texCoord0);
+    if ( origin.a < 0.05) {
+        discard;
+    }
+    fragColor = origin;
+
+    #endif
+
+    #if TEST > 0
+    return;
+    #endif
+
+
     vec4 originSample = texture(Sampler0, texCoord0);
     if (originSample.a < 0.05) {
         discard;

@@ -4,7 +4,8 @@ import com.kirisamey.toomanytinkers.rendering.MaterialMapTextureManager;
 import com.kirisamey.toomanytinkers.rendering.TmtRenderTypes;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
-import com.mojang.logging.LogUtils;
+import com.mojang.math.Transformation;
+import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.Material;
 import net.minecraftforge.client.RenderTypeGroup;
@@ -12,10 +13,17 @@ import net.minecraftforge.client.model.geometry.IGeometryBakingContext;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import slimeknights.mantle.client.model.util.MantleItemLayerModel;
+import slimeknights.mantle.util.ItemLayerPixels;
 import slimeknights.tconstruct.library.client.materials.MaterialRenderInfo;
+import slimeknights.tconstruct.library.client.materials.MaterialRenderInfoLoader;
+import slimeknights.tconstruct.library.client.model.tools.MaterialModel;
 import slimeknights.tconstruct.library.client.model.tools.ToolModel;
 import slimeknights.tconstruct.library.materials.definition.MaterialVariantId;
 
+import javax.annotation.Nullable;
+import java.util.List;
+import java.util.Optional;
 import java.util.function.Function;
 
 @Mixin(ToolModel.class)
@@ -33,6 +41,7 @@ public class ToolModelMixin {
             remap = false
     )
     private static RenderTypeGroup overrideRenderType(IGeometryBakingContext ctx, Operation<RenderTypeGroup> original) {
+        // todo: 搞个排除特定ID物品的配置表，我不想看到手杖和打火石
         return TmtRenderTypes.getTinkerMappingGroup();
     }
 
@@ -54,17 +63,62 @@ public class ToolModelMixin {
             Operation<MaterialRenderInfo.TintedSprite> original) {
         var matLocation = material.getLocation('_');
         var info = MaterialMapTextureManager.getTexInfo(matLocation);
-//        LogUtils.getLogger().debug("TMT: solving material sprite of material {}", matLocation);
-//        LogUtils.getLogger().debug("TMT: result: {}, id {}", info.getA(), info.getB());
+
         var vtx = -1;
-        if (info.getA() != MaterialMapTextureManager.MatType.NotFound) {
-            var is3D = info.getA() == MaterialMapTextureManager.MatType.Mat3D;
-            vtx = tooManyTinkers$getVertex(info.getB(), is3D, false);
+        if (info instanceof MaterialMapTextureManager.MatType.Mat1D m1d) {
+            vtx = tooManyTinkers$getVertex(m1d.getId(), false, false);
+        } else if (info instanceof MaterialMapTextureManager.MatType.Mat3D m3d) {
+            vtx = tooManyTinkers$getVertex(m3d.getId(), true, false);
+        } else {
+            return original.call(spriteGetter, texture, material);
         }
 
         var spr = spriteGetter.apply(texture);
         return new MaterialRenderInfo.TintedSprite(spr, vtx, 0);
     }
+
+
+    @WrapOperation(
+            method = "bakeInternal",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lslimeknights/tconstruct/library/client/model/tools/MaterialModel;" +
+                            "getQuadsForMaterial(" +
+                            "Ljava/util/function/Function;Lnet/minecraft/client/resources/model/Material;" +
+                            "Lslimeknights/tconstruct/library/materials/definition/MaterialVariantId;" +
+                            "ILcom/mojang/math/Transformation;" +
+                            "Lslimeknights/mantle/util/ItemLayerPixels;)" +
+                            "Ljava/util/List;"),
+            remap = false
+    )
+    private static List<BakedQuad> replaceLargeQuards(
+            Function<Material, TextureAtlasSprite> spriteGetter, Material texture, MaterialVariantId material,
+            int tintIndex, Transformation transformation, @Nullable ItemLayerPixels pixels,
+            Operation<List<BakedQuad>> original) {
+
+        // rewrite logic of getMaterialSprite
+        MaterialRenderInfo.TintedSprite sprite;
+        {
+            var matLocation = material.getLocation('_');
+            var info = MaterialMapTextureManager.getTexInfo(matLocation);
+
+            if (info instanceof MaterialMapTextureManager.MatType.Mat1D m1d) {
+                var vtx = tooManyTinkers$getVertex(m1d.getId(), false, true);
+                var spr = spriteGetter.apply(texture);
+                sprite = new MaterialRenderInfo.TintedSprite(spr, vtx, 0);
+            } else if (info instanceof MaterialMapTextureManager.MatType.Mat3D m3d) {
+                var vtx = tooManyTinkers$getVertex(m3d.getId(), true, true);
+                var spr = spriteGetter.apply(texture);
+                sprite = new MaterialRenderInfo.TintedSprite(spr, vtx, 0);
+            } else {
+                // origin
+                sprite = MaterialModel.getMaterialSprite(spriteGetter, texture, material);
+            }
+        }
+
+        return MantleItemLayerModel.getQuadsForSprite(sprite.color(), tintIndex, sprite.sprite(), transformation, sprite.emissivity(), pixels);
+    }
+
 
 //    @WrapOperation(
 //            method = "bakeInternal",

@@ -8,6 +8,7 @@ import com.kirisamey.toomanytinkers.rendering.events.MaterialMapTextureUpdatedEv
 import com.kirisamey.toomanytinkers.utils.TmtColorUtils;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.logging.LogUtils;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -74,17 +75,14 @@ public class MaterialMapTextureManager {
         return index;
     }
 
-    public static Pair<MatType, Integer> getTexInfo(ResourceLocation location) {
+    public static @NotNull MatType getTexInfo(ResourceLocation location) {
         var id = MAT1D_MAP.getOrDefault(location, -1);
+        if (id >= 0) return new MatType.Mat1D(id);
 
-        var is3d = id < 0;
-        if (is3d) {
-            id = MAT3D_MAP.getOrDefault(location, -1);
-        }
+        id = MAT3D_MAP.getOrDefault(location, -1);
+        if (id >= 0) return new MatType.Mat3D(id + unitsFor1D);
 
-        var got = id >= 0;
-
-        return new Pair<>(got ? (is3d ? MatType.Mat3D : MatType.Mat1D) : MatType.NotFound, id);
+        return new MatType.MatNotFound();
     }
 
     // </editor-fold>
@@ -384,7 +382,26 @@ public class MaterialMapTextureManager {
     // </editor-fold>
 
 
-    public enum MatType {
-        NotFound, Mat1D, Mat3D,
+    // <editor-fold desc="MatType">
+
+//    public enum MatType {
+//        NotFound, Mat1D, Mat3D,
+//    }
+
+    public static abstract class MatType {
+        public static class MatNotFound extends MatType {
+        }
+
+        @AllArgsConstructor
+        public static class Mat1D extends MatType {
+            @Getter private int id;
+        }
+
+        @AllArgsConstructor
+        public static class Mat3D extends MatType {
+            @Getter private int id;
+        }
     }
+
+    // </editor-fold>
 }
