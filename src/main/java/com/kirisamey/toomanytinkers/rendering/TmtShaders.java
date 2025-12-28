@@ -56,15 +56,15 @@ public class TmtShaders {
     }
 
     public static ShaderInstance setUpTinkerMappingShader() {
-        Objects.requireNonNull(tinkerMappingShader.getUniform("AtlasSize"))
-                .set(TinkerMappingUniforms.atlasWidth, TinkerMappingUniforms.atlasHeight);
-        Objects.requireNonNull(tinkerMappingShader.getUniform("MapSize"))
-                .set(TinkerMappingUniforms.mapWidth, TinkerMappingUniforms.mapHeight);
+        var atlasSize = tinkerMappingShader.getUniform("AtlasSize");
+        if (atlasSize != null) atlasSize.set(TinkerMappingUniforms.atlasWidth, TinkerMappingUniforms.atlasHeight);
+        var mapSize = tinkerMappingShader.getUniform("MapSize");
+        if (mapSize != null) mapSize.set(TinkerMappingUniforms.mapWidth, TinkerMappingUniforms.mapHeight);
         return tinkerMappingShader;
     }
 
-
     // </editor-fold>
+
 
     @Mod.EventBusSubscriber(modid = TooManyTinkers.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
     public static class ShadersRegister {
@@ -74,7 +74,7 @@ public class TmtShaders {
                 event.registerShader(new ShaderInstance(
                                 event.getResourceProvider(),
                                 ResourceLocation.fromNamespaceAndPath(TooManyTinkers.MODID, "tinker_map"),
-                                DefaultVertexFormat.BLOCK), // 物品渲染通常使用 NEW_ENTITY 格式
+                                DefaultVertexFormat.NEW_ENTITY), // 物品渲染通常使用 NEW_ENTITY 格式
                         shaderInstance -> tinkerMappingShader = shaderInstance
                 );
             } catch (IOException e) {

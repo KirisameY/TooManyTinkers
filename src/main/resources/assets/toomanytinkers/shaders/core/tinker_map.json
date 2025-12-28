@@ -10,6 +10,7 @@
     "Position",
     "Color",
     "UV0",
+    "UV1",
     "UV2",
     "Normal"
   ],
@@ -32,9 +33,17 @@
         0.0, 0.0, 1.0, 0.0,
         0.0, 0.0, 0.0, 1.0 ]
     },
+    { "name": "IViewRotMat", "type": "matrix3x3", "count": 9, "values":
+      [ 1.0, 0.0, 0.0,
+        0.0, 1.0, 0.0,
+        0.0, 0.0, 1.0 ]
+    },
     { "name": "Light0_Direction", "type": "float", "count": 3, "values": [0.0, 0.0, 0.0] },
     { "name": "Light1_Direction", "type": "float", "count": 3, "values": [0.0, 0.0, 0.0] },
     { "name": "ColorModulator", "type": "float", "count": 4, "values": [ 1.0, 1.0, 1.0, 1.0 ] },
+    { "name": "FogStart", "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "FogEnd", "type": "float", "count": 1, "values": [ 1.0 ] },
+    { "name": "FogColor", "type": "float", "count": 4, "values": [ 0.0, 0.0, 0.0, 0.0 ] },
     { "name": "AtlasSize", "type": "float", "count": 2, "values": [ 16.0, 16.0 ] },
     { "name": "MapSize", "type": "float", "count": 2, "values": [256.0 ,256.0]}
   ]

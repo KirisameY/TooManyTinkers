@@ -29,8 +29,9 @@ public class TmtRenderTypes extends RenderType {
                 VertexFormat.Mode.QUADS,
                 256,
                 true,
-                true,
+                false,
                 RenderType.CompositeState.builder()
+                        //.setShaderState(RenderType.RENDERTYPE_ENTITY_TRANSLUCENT_SHADER)
                         .setShaderState(new RenderStateShard.ShaderStateShard(TmtShaders::setUpTinkerMappingShader))
                         // binding sampler
                         .setTextureState(new RenderStateShard.EmptyTextureStateShard(() -> {
