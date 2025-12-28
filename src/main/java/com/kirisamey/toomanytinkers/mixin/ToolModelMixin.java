@@ -4,6 +4,7 @@ import com.kirisamey.toomanytinkers.rendering.MaterialMapTextureManager;
 import com.kirisamey.toomanytinkers.rendering.TmtRenderTypes;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.mojang.logging.LogUtils;
 import com.mojang.math.Transformation;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
@@ -74,6 +75,9 @@ public class ToolModelMixin {
         }
 
         var spr = spriteGetter.apply(texture);
+
+        LogUtils.getLogger().debug("TMT: replaced sprite for tex: {}, mat: {}", texture.texture(), matLocation);
+
         return new MaterialRenderInfo.TintedSprite(spr, vtx, 0);
     }
 

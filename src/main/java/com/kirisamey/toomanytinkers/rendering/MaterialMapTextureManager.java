@@ -198,6 +198,7 @@ public class MaterialMapTextureManager {
                 var c = cm.get("color").getAsString();
                 var grey = cm.get("grey").getAsInt();
                 var color = Integer.parseUnsignedInt(c, 16);
+                if(c.length() == 6) c = "ff"+c; // someone write material json with RGB instead of ARGB, unite them
                 return new Mat1DInfo.ColorMap(color, grey);
             }).collect(Collectors.toCollection(ArrayList::new));
 
