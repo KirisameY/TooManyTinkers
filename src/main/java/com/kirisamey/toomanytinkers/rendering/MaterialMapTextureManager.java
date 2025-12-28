@@ -10,6 +10,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.logging.LogUtils;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.SneakyThrows;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.renderer.texture.TextureAtlas;
@@ -199,8 +200,8 @@ public class MaterialMapTextureManager {
                 var cm = p.getAsJsonObject();
                 var c = cm.get("color").getAsString();
                 var grey = cm.get("grey").getAsInt();
+                if (c.length() == 6) c = "ff" + c; // someone write material json with RGB instead of ARGB, unite them
                 var color = Integer.parseUnsignedInt(c, 16);
-                if(c.length() == 6) c = "ff"+c; // someone write material json with RGB instead of ARGB, unite them
                 return new Mat1DInfo.ColorMap(color, grey);
             }).collect(Collectors.toCollection(ArrayList::new));
 
