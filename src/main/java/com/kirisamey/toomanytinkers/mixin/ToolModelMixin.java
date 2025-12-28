@@ -9,6 +9,7 @@ import com.mojang.math.Transformation;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.Material;
+import net.minecraft.util.FastColor;
 import net.minecraftforge.client.RenderTypeGroup;
 import net.minecraftforge.client.model.geometry.IGeometryBakingContext;
 import org.spongepowered.asm.mixin.Mixin;
@@ -71,12 +72,29 @@ public class ToolModelMixin {
         } else if (info instanceof MaterialMapTextureManager.MatType.Mat3D m3d) {
             vtx = tooManyTinkers$getVertex(m3d.getId(), true, false);
         } else {
-            return original.call(spriteGetter, texture, material);
+            LogUtils.getLogger().debug("[TMT] mat: {} has no mapped, replace for tex: {} cancelled, now getting fallback",
+                    matLocation, texture.texture());
+            var result = original.call(spriteGetter, texture, material);
+            LogUtils.getLogger().debug("[TMT] got fallback for tex: {}, mat: {};", matLocation, texture.texture());
+            LogUtils.getLogger().debug("[TMT] sprite: {}, color: {}, emissivity: {}",
+                    result.sprite(), Integer.toHexString(result.color()), result.emissivity());
+            if (FastColor.ARGB32.alpha(result.color()) <= 0x7f) {
+                var fixedColor = FastColor.ARGB32.color(
+                        0x80,
+                        FastColor.ARGB32.red(result.color()),
+                        FastColor.ARGB32.green(result.color()),
+                        FastColor.ARGB32.blue(result.color())
+                );
+                result = new MaterialRenderInfo.TintedSprite(result.sprite(), fixedColor, result.emissivity());
+                LogUtils.getLogger().warn("[TMT] mat: {} has default alpha less then 0x7f, make it 0x80 (color: {}) for tex: {}",
+                        matLocation, Integer.toHexString(fixedColor), texture.texture());
+            }
+            return result;
         }
 
         var spr = spriteGetter.apply(texture);
 
-        LogUtils.getLogger().debug("TMT: replaced sprite for tex: {}, mat: {}", texture.texture(), matLocation);
+        LogUtils.getLogger().debug("[TMT] replaced sprite for tex: {}, mat: {}", texture.texture(), matLocation);
 
         return new MaterialRenderInfo.TintedSprite(spr, vtx, 0);
     }

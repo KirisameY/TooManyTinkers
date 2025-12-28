@@ -79,7 +79,7 @@ void main() {
 
     vec4 color;
     if (flags >= 127.5) {
-        color = originSample;
+        color = originSample * mapping_data;
     }
     else {
         // get flags
