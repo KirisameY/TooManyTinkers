@@ -44,6 +44,7 @@ public class ToolModelMixin {
     )
     private static RenderTypeGroup overrideRenderType(IGeometryBakingContext ctx, Operation<RenderTypeGroup> original) {
         // todo: 搞个排除特定ID物品的配置表，我不想看到手杖和打火石
+        //       最好是三张表，一张物品，一张材质，一张物品+材质
         return TmtRenderTypes.getTinkerMappingGroup();
     }
 
@@ -140,33 +141,6 @@ public class ToolModelMixin {
 
         return MantleItemLayerModel.getQuadsForSprite(sprite.color(), tintIndex, sprite.sprite(), transformation, sprite.emissivity(), pixels);
     }
-
-
-//    @WrapOperation(
-//            method = "bakeInternal",
-//            at = @At(
-//                    value = "INVOKE",
-//                    target = "Lslimeknights/tconstruct/library/client/model/tools/MaterialModel;" +
-//                            "getQuadsForMaterial(" +
-//                            "Ljava/util/function/Function;" +
-//                            "Lnet/minecraft/client/resources/model/Material;" +
-//                            "Lslimeknights/tconstruct/library/materials/definition/MaterialVariantId;" +
-//                            "ILcom/mojang/math/Transformation;" +
-//                            "Lslimeknights/mantle/util/ItemLayerPixels;)" +
-//                            "Ljava/util/List;"),
-//            remap = false
-//    )
-//    private static List<BakedQuad> replaceLargeColor(
-//            Function<Material, TextureAtlasSprite> spriteGetter, Material texture,
-//            MaterialVariantId material, int tintIndex, Transformation transformation,
-//            @Nullable ItemLayerPixels pixels, Operation<List<BakedQuad>> original) {
-//        var origin = original.call(spriteGetter, texture, material, tintIndex, transformation, pixels);
-//        return origin.stream().map(quad -> {
-//            var c = quad.getTintIndex();
-//            // todo
-//            return quad;
-//        }).toList();
-//    }
 
 
     @Unique

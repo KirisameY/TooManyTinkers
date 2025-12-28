@@ -250,6 +250,8 @@ public class MaterialMapTextureManager {
 
     // <editor-fold desc="Update Texture">
 
+    // todo: 在这之前的任意时机，我们要开一个lifetime事件，让其他人能向我们这里注册材质。
+    //       或者不用事件，我们提供一个接口让用户实现然后由我们在prepare之后调度也可。
     private static void apply(@NotNull MaterialInfos materialInfos,
                               @NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profilerFiller) {
 
