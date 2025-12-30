@@ -34,11 +34,7 @@ public class TmtConfig {
 
 
     private static boolean validateExclude(final Object obj) {
-        if (!(obj instanceof final String str)) return false;
-        var parts = str.split("%");
-        return parts.length == 2
-                && (parts[0].split(":").length == 2 || parts[0].equals("*"))
-                && (parts[1].split(":").length == 2 || parts[1].equals("*"));
+        return obj instanceof String;
     }
 
     // </editor-fold>
@@ -57,8 +53,16 @@ public class TmtConfig {
         for (var pair : EXCLUDE_PAIRS.get()) {
             // Now I'm really missing pattern matching of C#, FUCK JVAV
             var pairSpl = pair.split("%");
-            var part = pairSpl[0];
-            var mat = pairSpl[1];
+
+            if (pairSpl.length == 2
+                    && (pairSpl[0].split(":").length == 2 || pairSpl[0].equals("*"))
+                    && (pairSpl[1].split(":").length == 2 || pairSpl[1].equals("*"))) {
+                logger.error("exclude entry in incorrect format: {}!", pair);
+                continue;
+            }
+
+            var part = pairSpl[0].trim();
+            var mat = pairSpl[1].trim();
             if (part.equals("*") && mat.equals("*")) {
                 logger.warn("zh_cn: 我说不支持'*%*'你二龙马？");
                 logger.warn("en_us: Didn't I say '*%*' is fucking not supported?");
@@ -66,12 +70,12 @@ public class TmtConfig {
                 var rlp = checkResourceLocation(mat);
                 if (rlp.first) materials.prefixes().add(rlp.second);
                 else materials.exacts().add(rlp.second);
-                logger.info("Add excluded part: '{}'{}", part, rlp.first ? " as prefix" : "");
+                logger.info("Add excluded material: '{}'{}", mat, rlp.first ? " as prefix" : "");
             } else if (mat.equals("*")) {
                 var rlp = checkResourceLocation(part);
                 if (rlp.first) parts.prefixes().add(rlp.second);
                 else parts.exacts().add(rlp.second);
-                logger.info("Add excluded material: '{}'{}", mat, rlp.first ? " as prefix" : "");
+                logger.info("Add excluded part: '{}'{}", part, rlp.first ? " as prefix" : "");
             } else {
                 var rlpPart = checkResourceLocation(part);
                 var rlpMat = checkResourceLocation(mat);
