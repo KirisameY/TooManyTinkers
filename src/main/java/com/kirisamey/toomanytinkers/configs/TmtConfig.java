@@ -23,6 +23,9 @@ public class TmtConfig {
             .comment("List of <Part, Material> Pair to for exclusion, split by a '%'")
             .comment("'*' & 'modid:*' & 'modid:any/path/*' are supported as wildcards")
             .comment("But '*%*' is not supported, I mean, why the hell would someone want use this?")
+            .comment("在这里列出要排除的 <工具部件，工具材料> 对，用一个'%'隔开两者")
+            .comment("支持 '*' & 'modid:*' & 'modid:any/path/*' 格式作为通配符")
+            .comment("注意不支持 '*%*'，你想写这个不如直接卸了mod")
             .defineListAllowEmpty("exclude_pairs", List.of(
                     "tconstruct:item/tool/armor/slime/helmet_skull%*"
             ), TmtConfig::validateExclude);
