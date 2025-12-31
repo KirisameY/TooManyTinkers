@@ -104,7 +104,7 @@ void main() {
             vec2 uv = mod(texCoord0 * AtlasSize, uvSize) / uvSize;
             float grey = originSample.r * 255.;
             vec2 uvg = vec2(floor(grey / 16. + .01), mod(grey, 16.));
-            vec2 uv2d = unit * 256. + uvg * 16. + uv * 16. + vec2(.5, .5);
+            vec2 uv2d = unit * 256. + uvg * 16. + uv * 16.;
             uv2d /= MapSize;
             color = texture(Sampler3, uv2d);
         }
