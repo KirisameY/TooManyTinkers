@@ -3,7 +3,6 @@ package com.kirisamey.toomanytinkers.rendering;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
-import com.ibm.icu.impl.Pair;
 import com.kirisamey.toomanytinkers.TooManyTinkers;
 import com.kirisamey.toomanytinkers.rendering.events.MaterialMapTextureUpdatedEvent;
 import com.kirisamey.toomanytinkers.utils.TmtColorUtils;
@@ -54,10 +53,10 @@ public class MaterialMapTextureManager {
 
     // <editor-fold desc="Material Maps">
 
-    private static final List<ResourceLocation> MAT1D_LST = new ArrayList<>();
+    private static int mat1dNext = 0;
     private static final Map<ResourceLocation, Integer> MAT1D_MAP = new HashMap<>();
 
-    private static final List<ResourceLocation> MAT3D_LST = new ArrayList<>();
+    private static int mat3dNext = 0;
     private static final Map<ResourceLocation, Integer> MAT3D_MAP = new HashMap<>();
 
     private static final Map<ResourceLocation, Integer> MAT_EMISSIVE_MAP = new HashMap<>();
@@ -65,21 +64,26 @@ public class MaterialMapTextureManager {
     private static int unitsFor1D = 1;
 
     private static void clearMaps() {
-        MAT1D_LST.clear();
+        mat1dNext = 0;
         MAT1D_MAP.clear();
+
+        mat3dNext = 0;
+        MAT3D_MAP.clear();
+
+        MAT_EMISSIVE_MAP.clear();
     }
 
     private static int tryAddMat1DMap(ResourceLocation location) {
-        var index = MAT1D_LST.size();
+        var index = mat1dNext;
         if (MAT1D_MAP.putIfAbsent(location, index) != null) return -1;
-        MAT1D_LST.add(location);
+        mat1dNext++;
         return index;
     }
 
     private static int tryAddMat3DMap(ResourceLocation location) {
-        var index = MAT3D_LST.size();
+        var index = mat3dNext;
         if (MAT3D_MAP.putIfAbsent(location, index) != null) return -1;
-        MAT3D_LST.add(location);
+        mat3dNext++;
         return index;
     }
 
