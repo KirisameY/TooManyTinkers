@@ -10,10 +10,8 @@ import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.logging.LogUtils;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.SneakyThrows;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
@@ -21,7 +19,6 @@ import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
 import net.minecraft.util.FastColor;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.util.profiling.ProfilerFiller;
-import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
 import net.minecraftforge.common.MinecraftForge;
@@ -30,16 +27,12 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import oshi.util.tuples.Pair;
 import slimeknights.mantle.util.JsonHelper;
 import slimeknights.tconstruct.library.client.materials.MaterialRenderInfoLoader;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -64,6 +57,8 @@ public class MaterialMapTextureManager {
     private static final List<ResourceLocation> MAT3D_LST = new ArrayList<>();
     private static final Map<ResourceLocation, Integer> MAT3D_MAP = new HashMap<>();
 
+    private static final Map<ResourceLocation, Integer> MAT_EMISSIVE_MAP = new HashMap<>();
+
     private static int unitsFor1D = 1;
 
     private static void clearMaps() {
@@ -78,12 +73,22 @@ public class MaterialMapTextureManager {
         return index;
     }
 
+    private static int tryAddMat3DMap(ResourceLocation location, int frames) {
+        if (frames <= 0) return -1;
+        var index = MAT3D_LST.size();
+        if (MAT3D_MAP.putIfAbsent(location, index) != null) return -1;
+        MAT3D_LST.addAll(Collections.nCopies(frames, location));
+        return index;
+    }
+
     public static @NotNull MatType getTexInfo(ResourceLocation location) {
+        var emissivity = MAT_EMISSIVE_MAP.getOrDefault(location, 0);
+
         var id = MAT1D_MAP.getOrDefault(location, -1);
-        if (id >= 0) return new MatType.Mat1D(id);
+        if (id >= 0) return new MatType.Mat1D(id, emissivity);
 
         id = MAT3D_MAP.getOrDefault(location, -1);
-        if (id >= 0) return new MatType.Mat3D(id + unitsFor1D);
+        if (id >= 0) return new MatType.Mat3D(id + unitsFor1D, emissivity);
 
         return new MatType.MatNotFound();
     }
@@ -125,6 +130,12 @@ public class MaterialMapTextureManager {
                     continue;
                 }
 
+                JsonElement emissivityJson = null;
+                int emissivity = 0;
+                if (json.has("emissivity")) emissivityJson = json.get("emissivity"); // 未雨绸缪
+                if (json.has("luminosity")) emissivityJson = json.get("luminosity");
+                if (emissivityJson != null) emissivity = emissivityJson.getAsInt();
+
                 var generator = json.get("generator");
                 if (!generator.isJsonObject()) {
                     LogUtils.getLogger().error("'generator' field of material {} is not an object", location);
@@ -158,6 +169,7 @@ public class MaterialMapTextureManager {
                         LogUtils.getLogger().error("Material {} has a unknown generator transformer type: {}", location, type);
                         break;
                 }
+                MAT_EMISSIVE_MAP.put(location, emissivity);
 
             } catch (IllegalStateException e) {
                 LogUtils.getLogger().error("Failed to get material generator info for {}", location, e);
@@ -237,6 +249,7 @@ public class MaterialMapTextureManager {
 
     @SuppressWarnings("LoggingSimilarMessage")
     private static @Nullable Mat3DInfo getDefaultMat3DInfo(JsonObject transformer, ResourceLocation location) {
+        var colorMapping = transformer.getAsJsonObject("color_mapping");
         LogUtils.getLogger().error("3D Info has not implemented yet, Material {} will not be registered", location);
         return null;
     }
@@ -325,7 +338,6 @@ public class MaterialMapTextureManager {
 
     public record Mat1DInfo(ResourceLocation location, int index, List<ColorMap> colorMaps) {
         public record ColorMap(int color, int grey) {
-
         }
     }
 
@@ -333,7 +345,6 @@ public class MaterialMapTextureManager {
     }
 
     public record MatInheritedInfo(ResourceLocation mat, ResourceLocation parent) {
-
     }
 
     public record MaterialInfos(List<Mat1DInfo> mat1DInfos, List<Mat3DInfo> mat3DInfos,
@@ -401,11 +412,13 @@ public class MaterialMapTextureManager {
         @AllArgsConstructor
         public static class Mat1D extends MatType {
             @Getter private int id;
+            @Getter private int emissivity;
         }
 
         @AllArgsConstructor
         public static class Mat3D extends MatType {
             @Getter private int id;
+            @Getter private int emissivity;
         }
     }
 

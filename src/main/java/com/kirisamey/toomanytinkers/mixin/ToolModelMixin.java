@@ -14,22 +14,20 @@ import net.minecraft.client.resources.model.Material;
 import net.minecraft.util.FastColor;
 import net.minecraftforge.client.RenderTypeGroup;
 import net.minecraftforge.client.model.geometry.IGeometryBakingContext;
+import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import slimeknights.mantle.client.model.util.MantleItemLayerModel;
 import slimeknights.mantle.util.ItemLayerPixels;
 import slimeknights.tconstruct.library.client.materials.MaterialRenderInfo;
-import slimeknights.tconstruct.library.client.materials.MaterialRenderInfoLoader;
 import slimeknights.tconstruct.library.client.model.tools.MaterialModel;
 import slimeknights.tconstruct.library.client.model.tools.ToolModel;
 import slimeknights.tconstruct.library.materials.definition.MaterialVariantId;
 
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 @Mixin(ToolModel.class)
 public class ToolModelMixin {
@@ -66,43 +64,6 @@ public class ToolModelMixin {
     private static MaterialRenderInfo.TintedSprite replaceMatSprite(
             Function<Material, TextureAtlasSprite> spriteGetter, Material texture, MaterialVariantId material,
             Operation<MaterialRenderInfo.TintedSprite> original) {
-//        var matLocation = material.getLocation('_');
-//        var info = MaterialMapTextureManager.getTexInfo(matLocation);
-//
-//        if (TmtExcludes.isExcluded(texture.texture(), matLocation)) //exclude
-//            info = new MaterialMapTextureManager.MatType.MatNotFound();
-//
-//        var vtx = -1;
-//        if (info instanceof MaterialMapTextureManager.MatType.Mat1D m1d) {
-//            vtx = tooManyTinkers$getVertex(m1d.getId(), false, false);
-//        } else if (info instanceof MaterialMapTextureManager.MatType.Mat3D m3d) {
-//            vtx = tooManyTinkers$getVertex(m3d.getId(), true, false);
-//        } else {
-//            LogUtils.getLogger().debug("[TMT] pair <{}, {}> has been excluded or not mapped, replace cancelled, now getting fallback",
-//                    texture.texture(), matLocation);
-//            var result = original.call(spriteGetter, texture, material);
-//            LogUtils.getLogger().debug("[TMT] got fallback for tex: {}, part: {};", matLocation, texture.texture());
-//            LogUtils.getLogger().debug("[TMT] sprite: {}, color: {}, emissivity: {}",
-//                    result.sprite(), Integer.toHexString(result.color()), result.emissivity());
-//            if (FastColor.ARGB32.alpha(result.color()) <= 0x7f) {
-//                var fixedColor = FastColor.ARGB32.color(
-//                        0x80,
-//                        FastColor.ARGB32.red(result.color()),
-//                        FastColor.ARGB32.green(result.color()),
-//                        FastColor.ARGB32.blue(result.color())
-//                );
-//                result = new MaterialRenderInfo.TintedSprite(result.sprite(), fixedColor, result.emissivity());
-//                LogUtils.getLogger().warn("[TMT] mat: {} has default alpha less then 0x7f, make it 0x80 (color: {}) for part: {}",
-//                        matLocation, Integer.toHexString(fixedColor), texture.texture());
-//            }
-//            return result;
-//        }
-//
-//        var spr = spriteGetter.apply(texture);
-//
-//        LogUtils.getLogger().debug("[TMT] replaced sprite for part: {}, mat: {}", texture.texture(), matLocation);
-//
-//        return new MaterialRenderInfo.TintedSprite(spr, vtx, 0);
         return tooManyTinkers$fixedGetMaterialSprite(spriteGetter, texture, material, false, original::call, "getSmallMatSprite");
     }
 
@@ -124,26 +85,6 @@ public class ToolModelMixin {
             Function<Material, TextureAtlasSprite> spriteGetter, Material texture, MaterialVariantId material,
             int tintIndex, Transformation transformation, @Nullable ItemLayerPixels pixels,
             Operation<List<BakedQuad>> original) {
-
-//        // rewrite logic of getMaterialSprite
-//        MaterialRenderInfo.TintedSprite sprite;
-//        {
-//            var matLocation = material.getLocation('_');
-//            var info = MaterialMapTextureManager.getTexInfo(matLocation);
-//
-//            if (info instanceof MaterialMapTextureManager.MatType.Mat1D m1d) {
-//                var vtx = tooManyTinkers$getVertex(m1d.getId(), false, true);
-//                var spr = spriteGetter.apply(texture);
-//                sprite = new MaterialRenderInfo.TintedSprite(spr, vtx, 0);
-//            } else if (info instanceof MaterialMapTextureManager.MatType.Mat3D m3d) {
-//                var vtx = tooManyTinkers$getVertex(m3d.getId(), true, true);
-//                var spr = spriteGetter.apply(texture);
-//                sprite = new MaterialRenderInfo.TintedSprite(spr, vtx, 0);
-//            } else {
-//                // origin
-//                sprite = MaterialModel.getMaterialSprite(spriteGetter, texture, material);
-//            }
-//        }
         var sprite = tooManyTinkers$fixedGetMaterialSprite(spriteGetter, texture, material, true,
                 MaterialModel::getMaterialSprite, "getLargeMatSprite");
 
@@ -175,8 +116,8 @@ public class ToolModelMixin {
     }
 
     @Unique
-    private static MaterialRenderInfo.TintedSprite tooManyTinkers$fixedGetMaterialSprite(
-            Function<Material, TextureAtlasSprite> spriteGetter, Material texture, MaterialVariantId material, Boolean isLarge,
+    private static @NotNull MaterialRenderInfo.TintedSprite tooManyTinkers$fixedGetMaterialSprite(
+            Function<Material, TextureAtlasSprite> spriteGetter, @NotNull Material texture, @NotNull MaterialVariantId material, Boolean isLarge,
             Function3<Function<Material, TextureAtlasSprite>, Material, MaterialVariantId, MaterialRenderInfo.TintedSprite> fallback,
             String logStage) {
         var matLocation = material.getLocation('_');
@@ -186,10 +127,13 @@ public class ToolModelMixin {
             info = new MaterialMapTextureManager.MatType.MatNotFound();
 
         var vtx = -1;
+        var emissivity = 0;
         if (info instanceof MaterialMapTextureManager.MatType.Mat1D m1d) {
             vtx = tooManyTinkers$getVertex(m1d.getId(), false, isLarge);
+            emissivity = m1d.getEmissivity();
         } else if (info instanceof MaterialMapTextureManager.MatType.Mat3D m3d) {
             vtx = tooManyTinkers$getVertex(m3d.getId(), true, isLarge);
+            emissivity = m3d.getEmissivity();
         } else {
             LogUtils.getLogger().debug("[TMT/{}] pair <{}, {}> has been excluded or not mapped, replace cancelled, now getting fallback",
                     logStage, texture.texture(), matLocation);
@@ -213,8 +157,8 @@ public class ToolModelMixin {
 
         var spr = spriteGetter.apply(texture);
 
-        LogUtils.getLogger().debug("[TMT/{}] replaced sprite for part: {}, mat: {}", logStage, texture.texture(), matLocation);
-        return new MaterialRenderInfo.TintedSprite(spr, vtx, 0);
+        LogUtils.getLogger().debug("[TMT/{}] replaced sprite for part: {}, mat: {}, emissivity: {}", logStage, texture.texture(), matLocation, emissivity);
+        return new MaterialRenderInfo.TintedSprite(spr, vtx, emissivity);
     }
 
 }
