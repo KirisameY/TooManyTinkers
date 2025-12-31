@@ -54,7 +54,7 @@ void main() {
 
     // 原始纹理
     vec4 origin = texture(Sampler0, texCoord0);
-    if ( origin.a < 0.05) {
+    if (origin.a < 0.05) {
         discard;
     }
     fragColor = origin;
@@ -102,9 +102,11 @@ void main() {
             // calc uv for 3d
             float uvSize = 32. - f_uv16or32 * 16.;
             vec2 uv = mod(texCoord0 * AtlasSize, uvSize) / uvSize;
-
-            // todo: sample 2d color
-            color = vec4(1, uv, 1) * originSample;
+            float grey = originSample.r * 255.;
+            vec2 uvg = vec2(floor(grey / 16. + .01), mod(grey, 16.));
+            vec2 uv2d = unit * 256. + uvg * 16. + uv * 16. + vec2(.5, .5);
+            uv2d /= MapSize;
+            color = texture(Sampler3, uv2d);
         }
     }
 

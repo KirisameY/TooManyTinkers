@@ -54,9 +54,9 @@ public class TmtConfig {
             // Now I'm really missing pattern matching of C#, FUCK JVAV
             var pairSpl = pair.split("%");
 
-            if (pairSpl.length == 2
-                    && (pairSpl[0].split(":").length == 2 || pairSpl[0].equals("*"))
-                    && (pairSpl[1].split(":").length == 2 || pairSpl[1].equals("*"))) {
+            if (pairSpl.length != 2
+                    || (pairSpl[0].split(":").length != 2 && !pairSpl[0].equals("*"))
+                    || (pairSpl[1].split(":").length != 2 && !pairSpl[1].equals("*"))) {
                 logger.error("exclude entry in incorrect format: {}!", pair);
                 continue;
             }

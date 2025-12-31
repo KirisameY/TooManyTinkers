@@ -1,10 +1,12 @@
 package com.kirisamey.toomanytinkers.mixin;
 
+import com.ibm.icu.impl.Pair;
 import com.kirisamey.toomanytinkers.configs.TmtExcludes;
 import com.kirisamey.toomanytinkers.rendering.MaterialMapTextureManager;
 import com.kirisamey.toomanytinkers.rendering.TmtRenderTypes;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.datafixers.util.Function3;
 import com.mojang.logging.LogUtils;
 import com.mojang.math.Transformation;
@@ -18,6 +20,7 @@ import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Slice;
 import slimeknights.mantle.client.model.util.MantleItemLayerModel;
 import slimeknights.mantle.util.ItemLayerPixels;
 import slimeknights.tconstruct.library.client.materials.MaterialRenderInfo;
@@ -61,10 +64,50 @@ public class ToolModelMixin {
                             "Lslimeknights/tconstruct/library/client/materials/MaterialRenderInfo$TintedSprite;"),
             remap = false
     )
-    private static MaterialRenderInfo.TintedSprite replaceMatSprite(
+    private static MaterialRenderInfo.TintedSprite replaceNormalMatSprite(
             Function<Material, TextureAtlasSprite> spriteGetter, Material texture, MaterialVariantId material,
             Operation<MaterialRenderInfo.TintedSprite> original) {
-        return tooManyTinkers$fixedGetMaterialSprite(spriteGetter, texture, material, false, original::call, "getSmallMatSprite");
+        return tooManyTinkers$fixedGetMaterialSprite(
+                spriteGetter, texture, material, false, original::call, "getSmallMatSprite"
+        ).first;
+    }
+
+
+    @WrapOperation(
+            method = "bakeInternal",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lslimeknights/mantle/client/model/util/MantleItemLayerModel;" +
+                            "getQuadsForSprite(" +
+                            "II" +
+                            "Lnet/minecraft/client/renderer/texture/TextureAtlasSprite;" +
+                            "Lcom/mojang/math/Transformation;" +
+                            "I" +
+                            "Lslimeknights/mantle/util/ItemLayerPixels;)" +
+                            "Ljava/util/List;"
+            ),
+            slice = @Slice(
+                    to = @At(
+                            value = "INVOKE",
+                            target = "Lslimeknights/tconstruct/library/client/model/tools/MaterialModel;" +
+                                    "getQuadsForMaterial(" +
+                                    "Ljava/util/function/Function;Lnet/minecraft/client/resources/model/Material;" +
+                                    "Lslimeknights/tconstruct/library/materials/definition/MaterialVariantId;" +
+                                    "I" +
+                                    "Lcom/mojang/math/Transformation;" +
+                                    "Lslimeknights/mantle/util/ItemLayerPixels;)" +
+                                    "Ljava/util/List;"
+                    )
+            ),
+            remap = false
+    )
+    private static List<BakedQuad> replaceNormalQuadTints(
+            int color, int tint, TextureAtlasSprite sprite, Transformation transform, int emissivity,
+            @Nullable ItemLayerPixels pixels, @NotNull Operation<List<BakedQuad>> original,
+            @Local(name = "material") MaterialVariantId materialCapture) {
+        var t = MaterialMapTextureManager.getTintIfIs4D(materialCapture.getLocation('_'));
+        if (t >= 0) tint = t;
+        return original.call(color, tint, sprite, transform, emissivity, pixels);
     }
 
 
@@ -76,7 +119,8 @@ public class ToolModelMixin {
                             "getQuadsForMaterial(" +
                             "Ljava/util/function/Function;Lnet/minecraft/client/resources/model/Material;" +
                             "Lslimeknights/tconstruct/library/materials/definition/MaterialVariantId;" +
-                            "ILcom/mojang/math/Transformation;" +
+                            "I" +
+                            "Lcom/mojang/math/Transformation;" +
                             "Lslimeknights/mantle/util/ItemLayerPixels;)" +
                             "Ljava/util/List;"),
             remap = false
@@ -85,8 +129,11 @@ public class ToolModelMixin {
             Function<Material, TextureAtlasSprite> spriteGetter, Material texture, MaterialVariantId material,
             int tintIndex, Transformation transformation, @Nullable ItemLayerPixels pixels,
             Operation<List<BakedQuad>> original) {
-        var sprite = tooManyTinkers$fixedGetMaterialSprite(spriteGetter, texture, material, true,
+        var pair = tooManyTinkers$fixedGetMaterialSprite(spriteGetter, texture, material, true,
                 MaterialModel::getMaterialSprite, "getLargeMatSprite");
+        var sprite = pair.first;
+        var tint = pair.second;
+        if (tint >= 0) tintIndex = tint;
 
         return MantleItemLayerModel.getQuadsForSprite(sprite.color(), tintIndex, sprite.sprite(), transformation, sprite.emissivity(), pixels);
     }
@@ -116,7 +163,7 @@ public class ToolModelMixin {
     }
 
     @Unique
-    private static @NotNull MaterialRenderInfo.TintedSprite tooManyTinkers$fixedGetMaterialSprite(
+    private static @NotNull Pair<MaterialRenderInfo.TintedSprite, Integer> tooManyTinkers$fixedGetMaterialSprite(
             Function<Material, TextureAtlasSprite> spriteGetter, @NotNull Material texture, @NotNull MaterialVariantId material, Boolean isLarge,
             Function3<Function<Material, TextureAtlasSprite>, Material, MaterialVariantId, MaterialRenderInfo.TintedSprite> fallback,
             String logStage) {
@@ -128,12 +175,16 @@ public class ToolModelMixin {
 
         var vtx = -1;
         var emissivity = 0;
+        var tint = -1;
         if (info instanceof MaterialMapTextureManager.MatType.Mat1D m1d) {
             vtx = tooManyTinkers$getVertex(m1d.getId(), false, isLarge);
             emissivity = m1d.getEmissivity();
         } else if (info instanceof MaterialMapTextureManager.MatType.Mat3D m3d) {
             vtx = tooManyTinkers$getVertex(m3d.getId(), true, isLarge);
             emissivity = m3d.getEmissivity();
+        } else if (info instanceof MaterialMapTextureManager.MatType.Mat4D m4d) {
+            tint = m4d.getTint();
+            emissivity = m4d.getEmissivity();
         } else {
             LogUtils.getLogger().debug("[TMT/{}] pair <{}, {}> has been excluded or not mapped, replace cancelled, now getting fallback",
                     logStage, texture.texture(), matLocation);
@@ -152,13 +203,13 @@ public class ToolModelMixin {
                 LogUtils.getLogger().warn("[TMT/{}] mat: {} has default alpha less then 0x7f, make it 0x80 (color: {}) for part: {}",
                         logStage, matLocation, Integer.toHexString(fixedColor), texture.texture());
             }
-            return result;
+            return Pair.of(result, -1);
         }
 
         var spr = spriteGetter.apply(texture);
 
         LogUtils.getLogger().debug("[TMT/{}] replaced sprite for part: {}, mat: {}, emissivity: {}", logStage, texture.texture(), matLocation, emissivity);
-        return new MaterialRenderInfo.TintedSprite(spr, vtx, emissivity);
+        return Pair.of(new MaterialRenderInfo.TintedSprite(spr, vtx, emissivity), tint);
     }
 
 }

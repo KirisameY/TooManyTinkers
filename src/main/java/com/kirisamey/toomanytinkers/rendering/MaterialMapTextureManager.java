@@ -3,6 +3,7 @@ package com.kirisamey.toomanytinkers.rendering;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
+import com.ibm.icu.impl.Pair;
 import com.kirisamey.toomanytinkers.TooManyTinkers;
 import com.kirisamey.toomanytinkers.rendering.events.MaterialMapTextureUpdatedEvent;
 import com.kirisamey.toomanytinkers.utils.TmtColorUtils;
@@ -13,6 +14,7 @@ import lombok.Getter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.server.packs.resources.SimplePreparableReloadListener;
@@ -33,12 +35,13 @@ import slimeknights.tconstruct.library.client.materials.MaterialRenderInfoLoader
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class MaterialMapTextureManager {
 
-    // <editor-fold desc="Texture">
+    // <editor-fold desc="texture">
 
     public static final int TEX_UNIT = 256;
     public static final ResourceLocation MAT_TEX_ID = ResourceLocation.fromNamespaceAndPath(TooManyTinkers.MODID, "dynamic/mat_map");
@@ -73,11 +76,10 @@ public class MaterialMapTextureManager {
         return index;
     }
 
-    private static int tryAddMat3DMap(ResourceLocation location, int frames) {
-        if (frames <= 0) return -1;
+    private static int tryAddMat3DMap(ResourceLocation location) {
         var index = MAT3D_LST.size();
         if (MAT3D_MAP.putIfAbsent(location, index) != null) return -1;
-        MAT3D_LST.addAll(Collections.nCopies(frames, location));
+        MAT3D_LST.add(location);
         return index;
     }
 
@@ -90,7 +92,14 @@ public class MaterialMapTextureManager {
         id = MAT3D_MAP.getOrDefault(location, -1);
         if (id >= 0) return new MatType.Mat3D(id + unitsFor1D, emissivity);
 
+        // todo: 4D get
+
         return new MatType.MatNotFound();
+    }
+
+    public static int getTintIfIs4D(ResourceLocation location) {
+        // todo: 4D get
+        return -1;
     }
 
     // </editor-fold>
@@ -98,8 +107,9 @@ public class MaterialMapTextureManager {
 
     // <editor-fold desc="Data Parsing">
 
-    private static @NotNull MaterialInfos prepare(@NotNull ResourceManager resourceManager,
-                                                  @NotNull ProfilerFiller profilerFiller) {
+    private static @NotNull MaterialInfos prepare(
+            @NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profilerFiller) {
+
         clearMaps();
 
         // "first, we need to fetch all relevant JSON files"
@@ -165,6 +175,9 @@ public class MaterialMapTextureManager {
                         var info3a = getAnimMat3DInfo(transformer, location);
                         if (info3a != null) mat3DInfos.add(info3a);
                         break;
+                    case "tconstruct:frames":
+                        LogUtils.getLogger().error("Transformer 'tconstruct:frames' has not supported yet, material {} skipped", location);
+                        break;
                     default:
                         LogUtils.getLogger().error("Material {} has a unknown generator transformer type: {}", location, type);
                         break;
@@ -178,10 +191,13 @@ public class MaterialMapTextureManager {
             }
         }
 
+        // todo: 在这里，我们要开一个lifetime事件，让其他人能向我们这里注册材质。
+        //       或者不用事件，我们提供一个接口让用户实现然后由我们在此调度也可。
+
         // calculate size of tex
         var count1D = mat1DInfos.size();
         unitsFor1D = (int) Math.ceil(((double) count1D) / TEX_UNIT);
-        var unitsFor3D = mat3DInfos.stream().mapToInt(Mat3DInfo::frames).sum();
+        var unitsFor3D = mat3DInfos.size();
         var totalUnits = unitsFor1D + unitsFor3D;
         {
             var sqrtCeil = Math.ceil(Math.sqrt(totalUnits));
@@ -212,7 +228,7 @@ public class MaterialMapTextureManager {
                 var cm = p.getAsJsonObject();
                 var c = cm.get("color").getAsString();
                 var grey = cm.get("grey").getAsInt();
-                if (c.length() == 6) c = "ff" + c; // someone write material json with RGB instead of ARGB, unite them
+                if (c.length() == 6) c = "ff" + c; // someone write material.json with RGB instead of ARGB, unite them
                 var color = Integer.parseUnsignedInt(c, 16);
                 return new Mat1DInfo.ColorMap(color, grey);
             }).collect(Collectors.toCollection(ArrayList::new));
@@ -247,25 +263,61 @@ public class MaterialMapTextureManager {
         }
     }
 
-    @SuppressWarnings("LoggingSimilarMessage")
     private static @Nullable Mat3DInfo getDefaultMat3DInfo(JsonObject transformer, ResourceLocation location) {
-        var colorMapping = transformer.getAsJsonObject("color_mapping");
-        LogUtils.getLogger().error("3D Info has not implemented yet, Material {} will not be registered", location);
-        return null;
+        try {
+            var palette = transformer.getAsJsonArray("palette");
+            var spriteMaps = palette.asList().stream().map(p -> {
+                var cm = p.getAsJsonObject();
+                var c = Optional.ofNullable(cm.get("color")).map(JsonElement::getAsString).orElse("ffffffff");
+                var grey = cm.get("grey").getAsInt();
+                var path = cm.get("path");
+                if (c.length() == 6) c = "ff" + c; // someone write material.json with RGB instead of ARGB, unite them
+                var color = Integer.parseUnsignedInt(c, 16);
+                Optional<ResourceLocation> tex = path == null ? Optional.empty() :
+                        Optional.ofNullable(ResourceLocation.tryParse(path.getAsString()));
+                tex = tex.map(l -> l.withPath("textures/" + l.getPath() + ".png"));
+                return new Mat3DInfo.SpriteMap(color, tex, grey);
+            }).collect(Collectors.toCollection(ArrayList::new));
+
+            // try to add to map
+            var index = tryAddMat3DMap(location);
+            var mat = new Mat3DInfo(location, index, spriteMaps, 0);
+
+            if (index < 0) {
+                LogUtils.getLogger().error("3D Material {} did not added to map, there is duplicated already exists? But why?", mat.location());
+                return null;
+            }
+
+            // validate
+            if (mat.spriteMaps.isEmpty()) {
+                LogUtils.getLogger().warn("3D Material {} has an empty color map!", mat.location());
+                mat.spriteMaps.add(new Mat3DInfo.SpriteMap(0xffffffff, Optional.empty(), 0));
+            }
+
+            // append last map if it needs
+            var lastMap = mat.spriteMaps.get(mat.spriteMaps.size() - 1);
+            if (lastMap.grey < 255) {
+                mat.spriteMaps.add(new Mat3DInfo.SpriteMap(lastMap.color, lastMap.texture, 255));
+            }
+
+            return new Mat3DInfo(location, index, spriteMaps, 0);
+        } catch (IllegalStateException | NullPointerException | UnsupportedOperationException |
+                 ClassCastException | NumberFormatException e) {
+            LogUtils.getLogger().error("Failed to read 3D material generator transformer info for {}", location, e);
+            return null;
+        }
     }
 
     private static @Nullable Mat3DInfo getAnimMat3DInfo(JsonObject transformer, ResourceLocation location) {
-        LogUtils.getLogger().error("3D Info has not implemented yet, Material {} will not be registered", location);
+        LogUtils.getLogger().error("4D Info has not implemented yet, Material {} will not be registered", location);
         return null;
     }
 
     // </editor-fold>
 
 
-    // <editor-fold desc="Update Texture">
+    // <editor-fold desc="Update texture">
 
-    // todo: 在这之前的任意时机，我们要开一个lifetime事件，让其他人能向我们这里注册材质。
-    //       或者不用事件，我们提供一个接口让用户实现然后由我们在prepare之后调度也可。
     private static void apply(@NotNull MaterialInfos materialInfos,
                               @NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profilerFiller) {
 
@@ -302,6 +354,75 @@ public class MaterialMapTextureManager {
 
             LogUtils.getLogger().info("1D Material {} mapped successfully as 1D no.{}", mat1.location(), index);
         }
+
+        for /* those for 3D */ (var mat3 : materialInfos.mat3DInfos()) {
+            // calculate position
+            var index = mat3.index() + unitsFor1D;
+            var gridY = (index % texHeigh) * TEX_UNIT;
+            var gridX = (index / texHeigh) * TEX_UNIT;
+
+            var first = mat3.spriteMaps().get(0);
+            Mat3DInfo.SpriteMap lastSprite = first.grey == 0 ? null : new Mat3DInfo.SpriteMap(first.color, first.texture, 0);
+            for (var sprMap : mat3.spriteMaps()) {
+                final var last = lastSprite;
+                if (lastSprite != null) {
+                    var d = sprMap.grey - lastSprite.grey;
+                    if (d <= 0) continue;
+
+                    final Function<Resource, Optional<NativeImage>> openImg = res -> {
+                        try (var str = res.open()) {
+                            return Optional.of(NativeImage.read(str));
+                        } catch (IOException e) {
+                            return Optional.empty();
+                        }
+                    };
+
+                    var texLst = lastSprite.texture.flatMap(resourceManager::getResource).flatMap(openImg);
+                    var texNew = sprMap.texture.flatMap(resourceManager::getResource).flatMap(openImg);
+
+                    IntStream.range(0, 256).forEach(i -> {
+                        var innerY = i % 16;
+                        var innerX = i / 16;
+
+                        final var frame = mat3.frame;
+                        final Function<NativeImage, Integer> readColor = img -> {
+                            var width = img.getWidth();
+                            var height = img.getHeight();
+                            var texX = innerX % width;
+                            var texY = innerY;
+                            if (frame < 0) {
+                                texY %= height;
+                            } else {
+                                texY = ((texY % width) + (frame * width)) % height;
+                            }
+                            return img.getPixelRGBA(texX, texY);
+                        };
+
+                        int colorLst = texLst.map(readColor).orElse(0xffffffff);
+                        int colorNew = texNew.map(readColor).orElse(0xffffffff);
+                        var colorLstF = FastColor.ARGB32.multiply(colorLst, TmtColorUtils.Argb2Abgr(last.color));
+                        var colorNewF = FastColor.ARGB32.multiply(colorNew, TmtColorUtils.Argb2Abgr(sprMap.color));
+
+                        IntStream.rangeClosed(last.grey, sprMap.grey).forEach(grey -> {
+                            if (grey < 0 || grey > 255) return;
+
+                            var lerp = ((float) (grey - last.grey)) / d;
+                            var color = FastColor.ARGB32.lerp(lerp, colorLstF, colorNewF);
+
+                            var frameY = gridY + (grey % 16) * 16 + innerY;
+                            var frameX = gridX + (grey / 16) * 16 + innerX;
+
+                            buffer.setPixelRGBA(frameX, frameY, color);
+                        });
+                    });
+
+                    texLst.ifPresent(NativeImage::close);
+                    texNew.ifPresent(NativeImage::close);
+                }
+                lastSprite = sprMap;
+            }
+        }
+
 
         if (mapTex != null) mapTex.close();
         mapTex = new DynamicTexture(buffer);
@@ -341,7 +462,9 @@ public class MaterialMapTextureManager {
         }
     }
 
-    public record Mat3DInfo(ResourceLocation location, int index, int frames) {
+    public record Mat3DInfo(ResourceLocation location, int index, List<SpriteMap> spriteMaps, int frame) {
+        public record SpriteMap(int color, Optional<ResourceLocation> texture, int grey) {
+        }
     }
 
     public record MatInheritedInfo(ResourceLocation mat, ResourceLocation parent) {
@@ -401,10 +524,6 @@ public class MaterialMapTextureManager {
 
     // <editor-fold desc="MatType">
 
-//    public enum MatType {
-//        NotFound, Mat1D, Mat3D,
-//    }
-
     public static abstract class MatType {
         public static class MatNotFound extends MatType {
         }
@@ -418,6 +537,11 @@ public class MaterialMapTextureManager {
         @AllArgsConstructor
         public static class Mat3D extends MatType {
             @Getter private int id;
+            @Getter private int emissivity;
+        }
+
+        public static class Mat4D extends MatType {
+            @Getter private int tint;
             @Getter private int emissivity;
         }
     }
