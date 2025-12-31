@@ -300,6 +300,7 @@ public class MaterialMapTextureManager {
                 mat.spriteMaps.add(new Mat3DInfo.SpriteMap(lastMap.color, lastMap.texture, 255));
             }
 
+            LogUtils.getLogger().info("Read 3D material info {} succeed!", location);
             return new Mat3DInfo(location, index, spriteMaps, 0);
         } catch (IllegalStateException | NullPointerException | UnsupportedOperationException |
                  ClassCastException | NumberFormatException e) {
@@ -421,6 +422,8 @@ public class MaterialMapTextureManager {
                 }
                 lastSprite = sprMap;
             }
+
+            LogUtils.getLogger().info("3D Material {} mapped successfully as 3D no.{}", mat3.location(), index);
         }
 
 
