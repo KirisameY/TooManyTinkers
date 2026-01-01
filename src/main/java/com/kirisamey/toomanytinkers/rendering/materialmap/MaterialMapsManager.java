@@ -24,12 +24,13 @@ import static com.kirisamey.toomanytinkers.rendering.materialmap.MaterialMapUpda
 public class MaterialMapsManager {
 
     // <editor-fold desc="Material Maps">
-
     private static int mat1dNext = 0;
     private static final Map<ResourceLocation, Integer> MAT1D_MAP = new HashMap<>();
 
     private static int mat3dNext = 0;
     private static final Map<ResourceLocation, Integer> MAT3D_MAP = new HashMap<>();
+
+    private static final Map<ResourceLocation, ResourceLocation> MAT_INHERITED_MAP = new HashMap<>();
 
     private static final Map<ResourceLocation, Integer> MAT_EMISSIVE_MAP = new HashMap<>();
 
@@ -60,6 +61,9 @@ public class MaterialMapsManager {
     }
 
     public static @NotNull MatType getTexInfo(ResourceLocation location) {
+        var locin = MAT_INHERITED_MAP.getOrDefault(location, null);
+        if (locin != null) location = locin;
+
         var emissivity = MAT_EMISSIVE_MAP.getOrDefault(location, 0);
 
         var id = MAT1D_MAP.getOrDefault(location, -1);
@@ -108,6 +112,7 @@ public class MaterialMapsManager {
                 if (!json.has("generator")) {
                     if (json.has("parent")) {
                         var parent = ResourceLocation.tryParse(json.get("parent").getAsString());
+                        MAT_INHERITED_MAP.putIfAbsent(location, parent);
                         matInheritedInfos.add(new MatInheritedInfo(location, parent));
                         LogUtils.getLogger().info("Read Inherited material info {} succeed!", location);
                         continue;

@@ -30,7 +30,7 @@ out vec4 fragColor;
 // 1 - 覆盖测试
 // 2 - UV测试
 // 3 - 原始纹理
-#define TEST 3
+#define TEST 0
 
 void main() {
 
