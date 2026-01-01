@@ -1,7 +1,8 @@
 package com.kirisamey.toomanytinkers.rendering;
 
 import com.kirisamey.toomanytinkers.TooManyTinkers;
-import com.kirisamey.toomanytinkers.rendering.events.MaterialMapTextureUpdatedEvent;
+import com.kirisamey.toomanytinkers.rendering.materialmap.events.MaterialMapTextureUpdatedEvent;
+import com.kirisamey.toomanytinkers.rendering.materialmap.MaterialMapTextureManager;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
@@ -15,7 +16,6 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 import java.io.IOException;
-import java.util.Objects;
 
 public class TmtShaders {
 

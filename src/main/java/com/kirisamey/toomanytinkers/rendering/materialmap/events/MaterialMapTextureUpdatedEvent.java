@@ -1,4 +1,4 @@
-package com.kirisamey.toomanytinkers.rendering.events;
+package com.kirisamey.toomanytinkers.rendering.materialmap.events;
 
 import net.minecraftforge.eventbus.api.Event;
 

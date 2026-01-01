@@ -2,7 +2,8 @@ package com.kirisamey.toomanytinkers.mixin;
 
 import com.ibm.icu.impl.Pair;
 import com.kirisamey.toomanytinkers.configs.TmtExcludes;
-import com.kirisamey.toomanytinkers.rendering.MaterialMapTextureManager;
+import com.kirisamey.toomanytinkers.rendering.materialmap.MaterialMapTextureManager;
+import com.kirisamey.toomanytinkers.rendering.materialmap.MaterialMapsManager;
 import com.kirisamey.toomanytinkers.rendering.TmtRenderTypes;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
@@ -105,7 +106,7 @@ public class ToolModelMixin {
             int color, int tint, TextureAtlasSprite sprite, Transformation transform, int emissivity,
             @Nullable ItemLayerPixels pixels, @NotNull Operation<List<BakedQuad>> original,
             @Local(name = "material") MaterialVariantId materialCapture) {
-        var t = MaterialMapTextureManager.getTintIfIs4D(materialCapture.getLocation('_'));
+        var t = MaterialMapsManager.getTintIfIs4D(materialCapture.getLocation('_'));
         if (t >= 0) tint = t;
         return original.call(color, tint, sprite, transform, emissivity, pixels);
     }
@@ -168,21 +169,21 @@ public class ToolModelMixin {
             Function3<Function<Material, TextureAtlasSprite>, Material, MaterialVariantId, MaterialRenderInfo.TintedSprite> fallback,
             String logStage) {
         var matLocation = material.getLocation('_');
-        var info = MaterialMapTextureManager.getTexInfo(matLocation);
+        var info = MaterialMapsManager.getTexInfo(matLocation);
 
         if (TmtExcludes.isExcluded(texture.texture(), matLocation)) //exclude
-            info = new MaterialMapTextureManager.MatType.MatNotFound();
+            info = new MaterialMapsManager.MatType.MatNotFound();
 
         var vtx = -1;
         var emissivity = 0;
         var tint = -1;
-        if (info instanceof MaterialMapTextureManager.MatType.Mat1D m1d) {
+        if (info instanceof MaterialMapsManager.MatType.Mat1D m1d) {
             vtx = tooManyTinkers$getVertex(m1d.getId(), false, isLarge);
             emissivity = m1d.getEmissivity();
-        } else if (info instanceof MaterialMapTextureManager.MatType.Mat3D m3d) {
+        } else if (info instanceof MaterialMapsManager.MatType.Mat3D m3d) {
             vtx = tooManyTinkers$getVertex(m3d.getId(), true, isLarge);
             emissivity = m3d.getEmissivity();
-        } else if (info instanceof MaterialMapTextureManager.MatType.Mat4D m4d) {
+        } else if (info instanceof MaterialMapsManager.MatType.Mat4D m4d) {
             tint = m4d.getTint();
             emissivity = m4d.getEmissivity();
         } else {
