@@ -87,7 +87,7 @@ public class MaterialMapsManager {
 
     // <editor-fold desc="Data Parsing">
 
-    static @NotNull MaterialInfos remapData(
+    static @NotNull List<MatInfo> remapData(
             @NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profilerFiller) {
 
         clearMaps();
@@ -98,9 +98,7 @@ public class MaterialMapsManager {
         Map<ResourceLocation, JsonElement> jsons = new HashMap<>();
         SimpleJsonResourceReloadListener.scanDirectory(resourceManager, MaterialRenderInfoLoader.FOLDER, JsonHelper.DEFAULT_GSON, jsons);
 
-        List<Mat1DInfo> mat1DInfos = new ArrayList<>();
-        List<Mat3DInfo> mat3DInfos = new ArrayList<>();
-        List<MatInheritedInfo> matInheritedInfos = new ArrayList<>();
+        List<MatInfo> matInfos = new ArrayList<>();
 
         for (var entry : jsons.entrySet()) {
             var location = entry.getKey();
@@ -113,7 +111,6 @@ public class MaterialMapsManager {
                     if (json.has("parent")) {
                         var parent = ResourceLocation.tryParse(json.get("parent").getAsString());
                         MAT_INHERITED_MAP.putIfAbsent(location, parent);
-                        matInheritedInfos.add(new MatInheritedInfo(location, parent));
                         LogUtils.getLogger().info("Read Inherited material info {} succeed!", location);
                         continue;
                     }
@@ -145,16 +142,16 @@ public class MaterialMapsManager {
                 var type = transformer.get("type").getAsString();
                 switch (type) {
                     case "tconstruct:recolor_sprite":
-                        var info1 = getMat1DInfo(transformer, location);
-                        if (info1 != null) mat1DInfos.add(info1);
+                        var infosRs = getRecolorSpriteMatInfo(transformer, location);
+                        matInfos.addAll(infosRs);
                         break;
                     case "tconstruct:grey_to_sprite":
-                        var info3n = getDefaultMat3DInfo(transformer, location);
-                        if (info3n != null) mat3DInfos.add(info3n);
+                        var infosGts = getGreyToSpriteMatInfo(transformer, location);
+                        matInfos.addAll(infosGts);
                         break;
                     case "tconstruct:animated_sprite":
-                        var info3a = getAnimMat3DInfo(transformer, location);
-                        if (info3a != null) mat3DInfos.add(info3a);
+                        var infosAs = getAnimatedSpriteMatInfo(transformer, location);
+                        matInfos.addAll(infosAs);
                         break;
                     case "tconstruct:frames":
                         LogUtils.getLogger().error("Transformer 'tconstruct:frames' has not supported yet, material {} skipped", location);
@@ -176,9 +173,12 @@ public class MaterialMapsManager {
         //       或者不用事件，我们提供一个接口让用户实现然后由我们在此调度也可。
 
         // calculate size of tex
-        var count1D = mat1DInfos.size();
+        int count1D = 0, unitsFor3D = 0;
+        for (var info : matInfos) {
+            if (info instanceof MatInfo.M1D) count1D++;
+            else if (info instanceof MatInfo.M3D) unitsFor3D++;
+        }
         unitsFor1D = (int) Math.ceil(((double) count1D) / MaterialMapTextureManager.TEX_UNIT);
-        var unitsFor3D = mat3DInfos.size();
         var totalUnits = unitsFor1D + unitsFor3D;
         {
             var sqrtCeil = Math.ceil(Math.sqrt(totalUnits));
@@ -194,16 +194,16 @@ public class MaterialMapsManager {
                     texWidth, texHeigh, texWidth * MaterialMapTextureManager.TEX_UNIT, texHeigh * MaterialMapTextureManager.TEX_UNIT);
         }
 
-        return new MaterialInfos(mat1DInfos, mat3DInfos, matInheritedInfos);
+        return matInfos.stream().toList();
     }
 
-    private static @Nullable Mat1DInfo getMat1DInfo(JsonObject transformer, ResourceLocation location) {
+    private static @NotNull Collection<MatInfo> getRecolorSpriteMatInfo(JsonObject transformer, ResourceLocation location) {
         try {
             var colorMapping = transformer.getAsJsonObject("color_mapping");
             var type = colorMapping.get("type").getAsString();
             if (!type.equals("tconstruct:grey_to_color")) {
                 LogUtils.getLogger().error("Unrecognized color_mapping type: {} in Material {}", type, location);
-                return null;
+                return List.of();
             }
 
             var palette = colorMapping.getAsJsonArray("palette");
@@ -213,40 +213,40 @@ public class MaterialMapsManager {
                 var grey = cm.get("grey").getAsInt();
                 if (c.length() == 6) c = "ff" + c; // someone write material.json with RGB instead of ARGB, unite them
                 var color = Integer.parseUnsignedInt(c, 16);
-                return new Mat1DInfo.ColorMap(color, grey);
+                return new MatInfo.M1D.ColorMap(color, grey);
             }).collect(Collectors.toCollection(ArrayList::new));
 
             // try to add to map
             var index = tryAddMat1DMap(location);
-            var mat = new Mat1DInfo(location, index, colorMaps);
+            var mat = new MatInfo.M1D(location, index, colorMaps);
 
             if (index < 0) {
-                LogUtils.getLogger().error("1D Material {} did not added to map, there is duplicated already exists? But why?", mat.location());
-                return null;
+                LogUtils.getLogger().error("1D Material {} did not added to map, there is duplicated already exists? But why?", mat.getLocation());
+                return List.of();
             }
 
             // validate
-            if (mat.colorMaps().isEmpty()) {
-                LogUtils.getLogger().warn("1D Material {} has an empty color map!", mat.location());
-                mat.colorMaps().add(new Mat1DInfo.ColorMap(0xffffffff, 0));
+            if (mat.getColorMaps().isEmpty()) {
+                LogUtils.getLogger().warn("1D Material {} has an empty color map!", mat.getLocation());
+                mat.getColorMaps().add(new MatInfo.M1D.ColorMap(0xffffffff, 0));
             }
 
             // append last map if it needs
-            var lastMap = mat.colorMaps().get(mat.colorMaps().size() - 1);
+            var lastMap = mat.getColorMaps().get(mat.getColorMaps().size() - 1);
             if (lastMap.grey() < 255) {
-                mat.colorMaps().add(new Mat1DInfo.ColorMap(lastMap.color(), 255));
+                mat.getColorMaps().add(new MatInfo.M1D.ColorMap(lastMap.color(), 255));
             }
 
             LogUtils.getLogger().info("Read 1D material info {} succeed!", location);
-            return mat;
+            return List.of(mat);
         } catch (IllegalStateException | NullPointerException | UnsupportedOperationException |
                  ClassCastException | NumberFormatException e) {
             LogUtils.getLogger().error("Failed to read 1D material generator transformer info for {}", location, e);
-            return null;
+            return List.of();
         }
     }
 
-    private static @Nullable Mat3DInfo getDefaultMat3DInfo(JsonObject transformer, ResourceLocation location) {
+    private static @NotNull Collection<MatInfo> getGreyToSpriteMatInfo(JsonObject transformer, ResourceLocation location) {
         try {
             var palette = transformer.getAsJsonArray("palette");
             var spriteMaps = palette.asList().stream().map(p -> {
@@ -259,42 +259,42 @@ public class MaterialMapsManager {
                 Optional<ResourceLocation> tex = path == null ? Optional.empty() :
                         Optional.ofNullable(ResourceLocation.tryParse(path.getAsString()));
                 tex = tex.map(l -> l.withPath("textures/" + l.getPath() + ".png"));
-                return new Mat3DInfo.SpriteMap(color, tex, grey);
+                return new MatInfo.M3D.SpriteMap(color, tex, grey);
             }).collect(Collectors.toCollection(ArrayList::new));
 
             // try to add to map
             var index = tryAddMat3DMap(location);
-            var mat = new Mat3DInfo(location, index, spriteMaps, 0);
+            var mat = new MatInfo.M3D(location, index, spriteMaps, 0);
 
             if (index < 0) {
-                LogUtils.getLogger().error("3D Material {} did not added to map, there is duplicated already exists? But why?", mat.location());
-                return null;
+                LogUtils.getLogger().error("3D Material {} did not added to map, there is duplicated already exists? But why?", mat.getLocation());
+                return List.of();
             }
 
             // validate
-            if (mat.spriteMaps().isEmpty()) {
-                LogUtils.getLogger().warn("3D Material {} has an empty color map!", mat.location());
-                mat.spriteMaps().add(new Mat3DInfo.SpriteMap(0xffffffff, Optional.empty(), 0));
+            if (mat.getSpriteMaps().isEmpty()) {
+                LogUtils.getLogger().warn("3D Material {} has an empty color map!", mat.getLocation());
+                mat.getSpriteMaps().add(new MatInfo.M3D.SpriteMap(0xffffffff, Optional.empty(), 0));
             }
 
             // append last map if it needs
-            var lastMap = mat.spriteMaps().get(mat.spriteMaps().size() - 1);
+            var lastMap = mat.getSpriteMaps().get(mat.getSpriteMaps().size() - 1);
             if (lastMap.grey() < 255) {
-                mat.spriteMaps().add(new Mat3DInfo.SpriteMap(lastMap.color(), lastMap.texture(), 255));
+                mat.getSpriteMaps().add(new MatInfo.M3D.SpriteMap(lastMap.color(), lastMap.texture(), 255));
             }
 
             LogUtils.getLogger().info("Read 3D material info {} succeed!", location);
-            return new Mat3DInfo(location, index, spriteMaps, 0);
+            return List.of(new MatInfo.M3D(location, index, spriteMaps, 0));
         } catch (IllegalStateException | NullPointerException | UnsupportedOperationException |
                  ClassCastException | NumberFormatException e) {
             LogUtils.getLogger().error("Failed to read 3D material generator transformer info for {}", location, e);
-            return null;
+            return List.of();
         }
     }
 
-    private static @Nullable Mat3DInfo getAnimMat3DInfo(JsonObject transformer, ResourceLocation location) {
+    private static @NotNull Collection<MatInfo> getAnimatedSpriteMatInfo(JsonObject transformer, ResourceLocation location) {
         LogUtils.getLogger().error("4D Info has not implemented yet, Material {} will not be registered", location);
-        return null;
+        return List.of();
     }
 
     // </editor-fold>

@@ -44,7 +44,7 @@ public class MaterialMapTextureManager {
 
     // <editor-fold desc="Update texture">
 
-    static void remapTexture(@NotNull MaterialInfos materialInfos,
+    static void remapTexture(@NotNull List<MatInfo> materialInfos,
                              @NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profilerFiller) {
 
         // initialize buffer
@@ -52,106 +52,105 @@ public class MaterialMapTextureManager {
         LogUtils.getLogger().info("MatMap texture initialized with size {}, {} ({}, {})",
                 texWidth, texHeigh, texWidth * TEX_UNIT, texHeigh * TEX_UNIT);
 
-        for /* those for 1D */ (var mat1 : materialInfos.mat1DInfos()) {
-            // calculate position
-            var index = mat1.index();
-            var row = index % (texHeigh * TEX_UNIT);
-            var col = index / (texHeigh * TEX_UNIT);
+        for (var mat : materialInfos) {
+            if /* those for 1D */ (mat instanceof MatInfo.M1D mat1) {
+                // calculate position
+                var index = mat1.getIndex();
+                var row = index % (texHeigh * TEX_UNIT);
+                var col = index / (texHeigh * TEX_UNIT);
 
-            var first = mat1.colorMaps().get(0);
-            Mat1DInfo.ColorMap lastColor = first.grey() == 0 ? null : new Mat1DInfo.ColorMap(first.color(), 0);
-            for (var colorMap : mat1.colorMaps()) {
-                final var last = lastColor;
-                if (lastColor != null) {
-                    var d = colorMap.grey() - lastColor.grey();
-                    if (d <= 0) continue;
-                    IntStream.rangeClosed(lastColor.grey(), colorMap.grey()).forEach(grey -> {
-                        if (grey < 0 || grey > 255) return;
-                        //noinspection UnnecessaryLocalVariable
-                        var y = row;
-                        var x = col * TEX_UNIT + grey;
-                        var lerp = ((float) (grey - last.grey())) / d;
-                        var color = FastColor.ARGB32.lerp(lerp, last.color(), colorMap.color());
-                        buffer.setPixelRGBA(x, y, TmtColorUtils.Argb2Abgr(color));
-                    });
+                var first = mat1.getColorMaps().get(0);
+                MatInfo.M1D.ColorMap lastColor = first.grey() <= 0 ? null : new MatInfo.M1D.ColorMap(first.color(), 0);
+                for (var colorMap : mat1.getColorMaps()) {
+                    final var last = lastColor;
+                    if (lastColor != null) {
+                        var d = colorMap.grey() - lastColor.grey();
+                        if (d <= 0) continue;
+                        IntStream.rangeClosed(lastColor.grey(), colorMap.grey()).forEach(grey -> {
+                            if (grey < 0 || grey > 255) return;
+                            //noinspection UnnecessaryLocalVariable
+                            var y = row;
+                            var x = col * TEX_UNIT + grey;
+                            var lerp = ((float) (grey - last.grey())) / d;
+                            var color = FastColor.ARGB32.lerp(lerp, last.color(), colorMap.color());
+                            buffer.setPixelRGBA(x, y, TmtColorUtils.Argb2Abgr(color));
+                        });
+                    }
+                    lastColor = colorMap;
                 }
-                lastColor = colorMap;
-            }
 
-            LogUtils.getLogger().info("1D Material {} mapped successfully as 1D no.{}", mat1.location(), index);
-        }
+                LogUtils.getLogger().info("1D Material {} mapped successfully as 1D no.{}", mat1.getLocation(), index);
+            } else if /* those for 3D */ (mat instanceof MatInfo.M3D mat3) {
+                // calculate position
+                var index = mat3.getIndex() + MaterialMapsManager.getUnitsFor1D();
+                var gridY = (index % texHeigh) * TEX_UNIT;
+                var gridX = (index / texHeigh) * TEX_UNIT;
 
-        for /* those for 3D */ (var mat3 : materialInfos.mat3DInfos()) {
-            // calculate position
-            var index = mat3.index() + MaterialMapsManager.getUnitsFor1D();
-            var gridY = (index % texHeigh) * TEX_UNIT;
-            var gridX = (index / texHeigh) * TEX_UNIT;
+                var first = mat3.getSpriteMaps().get(0);
+                MatInfo.M3D.SpriteMap lastSprite = first.grey() <= 0 ? null :
+                        new MatInfo.M3D.SpriteMap(first.color(), first.texture(), 0);
+                for (var sprMap : mat3.getSpriteMaps()) {
+                    final var last = lastSprite;
+                    if (lastSprite != null) {
+                        var d = sprMap.grey() - lastSprite.grey();
+                        if (d <= 0) continue;
 
-            var first = mat3.spriteMaps().get(0);
-            Mat3DInfo.SpriteMap lastSprite = first.grey() == 0 ? null :
-                    new Mat3DInfo.SpriteMap(first.color(), first.texture(), 0);
-            for (var sprMap : mat3.spriteMaps()) {
-                final var last = lastSprite;
-                if (lastSprite != null) {
-                    var d = sprMap.grey() - lastSprite.grey();
-                    if (d <= 0) continue;
-
-                    final Function<Resource, Optional<NativeImage>> openImg = res -> {
-                        try (var str = res.open()) {
-                            return Optional.of(NativeImage.read(str));
-                        } catch (IOException e) {
-                            return Optional.empty();
-                        }
-                    };
-
-                    var texLst = lastSprite.texture().flatMap(resourceManager::getResource).flatMap(openImg);
-                    var texNew = sprMap.texture().flatMap(resourceManager::getResource).flatMap(openImg);
-
-                    IntStream.range(0, 256).forEach(i -> {
-                        var innerY = i % 16;
-                        var innerX = i / 16;
-
-                        final var frame = mat3.frame();
-                        final Function<NativeImage, Integer> readColor = img -> {
-                            var width = img.getWidth();
-                            var height = img.getHeight();
-                            var texX = innerX % width;
-                            var texY = innerY;
-                            if (frame < 0) {
-                                texY %= height;
-                            } else {
-                                texY = ((texY % width) + (frame * width)) % height;
+                        final Function<Resource, Optional<NativeImage>> openImg = res -> {
+                            try (var str = res.open()) {
+                                return Optional.of(NativeImage.read(str));
+                            } catch (IOException e) {
+                                return Optional.empty();
                             }
-                            return img.getPixelRGBA(texX, texY);
                         };
 
-                        int colorLst = texLst.map(readColor).orElse(0xffffffff);
-                        int colorNew = texNew.map(readColor).orElse(0xffffffff);
-                        var colorLstF = FastColor.ARGB32.multiply(colorLst, TmtColorUtils.Argb2Abgr(last.color()));
-                        var colorNewF = FastColor.ARGB32.multiply(colorNew, TmtColorUtils.Argb2Abgr(sprMap.color()));
+                        var texLst = lastSprite.texture().flatMap(resourceManager::getResource).flatMap(openImg);
+                        var texNew = sprMap.texture().flatMap(resourceManager::getResource).flatMap(openImg);
 
-                        IntStream.rangeClosed(last.grey(), sprMap.grey()).forEach(grey -> {
-                            if (grey < 0 || grey > 255) return;
+                        IntStream.range(0, 256).forEach(i -> {
+                            var innerY = i % 16;
+                            var innerX = i / 16;
 
-                            var lerp = ((float) (grey - last.grey())) / d;
-                            var color = FastColor.ARGB32.lerp(lerp, colorLstF, colorNewF);
+                            final var frame = mat3.getFrame();
+                            final Function<NativeImage, Integer> readColor = img -> {
+                                var width = img.getWidth();
+                                var height = img.getHeight();
+                                var texX = innerX % width;
+                                var texY = innerY;
+                                if (frame < 0) {
+                                    texY %= height;
+                                } else {
+                                    texY = ((texY % width) + (frame * width)) % height;
+                                }
+                                return img.getPixelRGBA(texX, texY);
+                            };
 
-                            var frameY = gridY + (grey % 16) * 16 + innerY;
-                            var frameX = gridX + (grey / 16) * 16 + innerX;
+                            int colorLst = texLst.map(readColor).orElse(0xffffffff);
+                            int colorNew = texNew.map(readColor).orElse(0xffffffff);
+                            var colorLstF = FastColor.ARGB32.multiply(colorLst, TmtColorUtils.Argb2Abgr(last.color()));
+                            var colorNewF = FastColor.ARGB32.multiply(colorNew, TmtColorUtils.Argb2Abgr(sprMap.color()));
 
-                            buffer.setPixelRGBA(frameX, frameY, color);
+                            IntStream.rangeClosed(last.grey(), sprMap.grey()).forEach(grey -> {
+                                if (grey < 0 || grey > 255) return;
+
+                                var lerp = ((float) (grey - last.grey())) / d;
+                                var color = FastColor.ARGB32.lerp(lerp, colorLstF, colorNewF);
+
+                                var frameY = gridY + (grey % 16) * 16 + innerY;
+                                var frameX = gridX + (grey / 16) * 16 + innerX;
+
+                                buffer.setPixelRGBA(frameX, frameY, color);
+                            });
                         });
-                    });
 
-                    texLst.ifPresent(NativeImage::close);
-                    texNew.ifPresent(NativeImage::close);
+                        texLst.ifPresent(NativeImage::close);
+                        texNew.ifPresent(NativeImage::close);
+                    }
+                    lastSprite = sprMap;
                 }
-                lastSprite = sprMap;
+
+                LogUtils.getLogger().info("3D Material {} mapped successfully as 3D no.{}", mat3.getLocation(), index);
             }
-
-            LogUtils.getLogger().info("3D Material {} mapped successfully as 3D no.{}", mat3.location(), index);
         }
-
 
         if (mapTex != null) mapTex.close();
         mapTex = new DynamicTexture(buffer);
