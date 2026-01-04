@@ -1,7 +1,6 @@
 package com.kirisamey.toomanytinkers.rendering.materialmap;
 
 import com.kirisamey.toomanytinkers.TooManyTinkers;
-import com.kirisamey.toomanytinkers.rendering.materialmap.events.MaterialMapTextureUpdatedEvent;
 import com.kirisamey.toomanytinkers.utils.TmtColorUtils;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.logging.LogUtils;
@@ -15,10 +14,6 @@ import net.minecraft.server.packs.resources.Resource;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.util.FastColor;
 import net.minecraft.util.profiling.ProfilerFiller;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.TickEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -173,25 +168,6 @@ public class MaterialMapTextureManager {
                     LogUtils.getLogger().error("test image save error", e);
                 }
             }
-        }
-
-        // fire the event
-        LogUtils.getLogger().debug("Fire the MaterialMapTextureUpdatedEvent");
-        MinecraftForge.EVENT_BUS.post(new MaterialMapTextureUpdatedEvent());
-    }
-
-    // </editor-fold>
-
-
-    // <editor-fold desc="Event Handlers">
-
-    @Mod.EventBusSubscriber(modid = TooManyTinkers.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
-    public static class MaterialMapTextureInitializedResender {
-        @SubscribeEvent()
-        public static void onClientTick(TickEvent.ClientTickEvent e) {
-            MinecraftForge.EVENT_BUS.unregister(MaterialMapTextureInitializedResender.class);
-            // 补发第一次事件
-            MinecraftForge.EVENT_BUS.post(new MaterialMapTextureUpdatedEvent());
         }
     }
 

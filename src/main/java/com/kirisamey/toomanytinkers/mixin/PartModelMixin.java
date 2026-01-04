@@ -1,5 +1,7 @@
 package com.kirisamey.toomanytinkers.mixin;
 
+import com.kirisamey.toomanytinkers.configs.TmtExcludes;
+import com.kirisamey.toomanytinkers.rendering.TmtAnimColorBakedQuad;
 import com.kirisamey.toomanytinkers.rendering.TmtRenderTypes;
 import com.kirisamey.toomanytinkers.rendering.materialmap.MaterialMapsManager;
 import com.kirisamey.toomanytinkers.utils.TmtLookupUtils;
@@ -80,9 +82,13 @@ public class PartModelMixin {
             @NotNull Operation<List<BakedQuad>> original,
             @Local(name = "material") MaterialVariantId materialCapture) {
         var matLoc = materialCapture.getLocation('_');
-        var t = MaterialMapsManager.getTintIfIs4D(matLoc);
-        if (t >= 0) tint = t;
-        return original.call(color, tint, sprite, transform, emissivity);
+        var anim = MaterialMapsManager.tryGetAnimId(matLoc);
+
+        var result = original.call(color, tint, sprite, transform, emissivity);
+        if (anim >= 0) result = result.stream()
+                .map(q -> (BakedQuad) TmtAnimColorBakedQuad.fromBakedQuad(q, anim, false))
+                .toList();
+        return result;
     }
 
 }

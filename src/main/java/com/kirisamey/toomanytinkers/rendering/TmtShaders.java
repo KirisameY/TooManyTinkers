@@ -1,7 +1,7 @@
 package com.kirisamey.toomanytinkers.rendering;
 
 import com.kirisamey.toomanytinkers.TooManyTinkers;
-import com.kirisamey.toomanytinkers.rendering.materialmap.events.MaterialMapTextureUpdatedEvent;
+import com.kirisamey.toomanytinkers.rendering.materialmap.events.MaterialMappingUpdatedEvent;
 import com.kirisamey.toomanytinkers.rendering.materialmap.MaterialMapTextureManager;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.logging.LogUtils;
@@ -32,7 +32,7 @@ public class TmtShaders {
         static float mapHeight;
 
         @SubscribeEvent
-        public static void updateUniforms(MaterialMapTextureUpdatedEvent e) {
+        public static void updateUniforms(MaterialMappingUpdatedEvent e) {
             LogUtils.getLogger().debug("Now Update Uniform for TinkerMappingShader");
 
             var atlasTex = Minecraft.getInstance().getTextureManager().getTexture(InventoryMenu.BLOCK_ATLAS);

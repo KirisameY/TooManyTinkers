@@ -1,11 +1,14 @@
 package com.kirisamey.toomanytinkers.mixin;
 
+import com.kirisamey.toomanytinkers.configs.TmtExcludes;
+import com.kirisamey.toomanytinkers.rendering.TmtAnimColorBakedQuad;
 import com.kirisamey.toomanytinkers.rendering.materialmap.MaterialMapsManager;
 import com.kirisamey.toomanytinkers.rendering.TmtRenderTypes;
 import com.kirisamey.toomanytinkers.utils.TmtLookupUtils;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
+import com.llamalad7.mixinextras.sugar.ref.LocalRef;
 import com.mojang.math.Transformation;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
@@ -14,6 +17,7 @@ import net.minecraftforge.client.RenderTypeGroup;
 import net.minecraftforge.client.model.geometry.IGeometryBakingContext;
 import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Slice;
 import slimeknights.mantle.client.model.util.MantleItemLayerModel;
@@ -99,10 +103,23 @@ public class ToolModelMixin {
     private static List<BakedQuad> replaceNormalQuadTints(
             int color, int tint, TextureAtlasSprite sprite, Transformation transform, int emissivity,
             @Nullable ItemLayerPixels pixels, @NotNull Operation<List<BakedQuad>> original,
-            @Local(name = "material") MaterialVariantId materialCapture) {
-        var t = MaterialMapsManager.getTintIfIs4D(materialCapture.getLocation('_'));
-        if (t >= 0) tint = t;
-        return original.call(color, tint, sprite, transform, emissivity, pixels);
+            @Local(name = "material") MaterialVariantId material,
+            @Local(argsOnly = true) IGeometryBakingContext owner
+            //@Local(name = "part") ToolModel.ToolPart part
+    ) {
+        // todo: fuck it, i cant do that to make exclude work on normal quads
+        //       fuck slimeknights, fuck mixin-extras
+        //       * And the situation is the same on PartModel's side.
+//        var partId = owner.getMaterial(((ToolPartAccessor)part).getName(false)).texture();
+        var matId = material.getLocation('_');
+        var anim = MaterialMapsManager.tryGetAnimId(matId);
+
+        var result = original.call(color, tint, sprite, transform, emissivity, pixels);
+//        if (TmtExcludes.isExcluded(partId, matId)) return result; //exclude
+        if (anim >= 0) result = result.stream()
+                .map(q -> (BakedQuad) TmtAnimColorBakedQuad.fromBakedQuad(q, anim, false))
+                .toList();
+        return result;
     }
 
 
@@ -127,9 +144,13 @@ public class ToolModelMixin {
         var pair = TmtLookupUtils.fixedGetMaterialSprite(spriteGetter, texture, material, true,
                 MaterialModel::getMaterialSprite, "getLargeMatSprite");
         var sprite = pair.first;
-        var tint = pair.second;
-        if (tint >= 0) tintIndex = tint;
+        var anim = pair.second;
 
-        return MantleItemLayerModel.getQuadsForSprite(sprite.color(), tintIndex, sprite.sprite(), transformation, sprite.emissivity(), pixels);
+        var result = MantleItemLayerModel.getQuadsForSprite(sprite.color(), tintIndex, sprite.sprite(), transformation, sprite.emissivity(), pixels);
+        if (TmtExcludes.isExcluded(texture.texture(), material.getLocation('_'))) return result; //exclude
+        if (anim >= 0) result = result.stream()
+                .map(q -> (BakedQuad) TmtAnimColorBakedQuad.fromBakedQuad(q, anim, true))
+                .toList();
+        return result;
     }
 }

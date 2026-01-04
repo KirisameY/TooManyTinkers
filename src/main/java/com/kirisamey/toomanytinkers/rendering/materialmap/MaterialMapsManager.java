@@ -3,6 +3,7 @@ package com.kirisamey.toomanytinkers.rendering.materialmap;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
+import com.kirisamey.toomanytinkers.rendering.materialmap.events.MaterialAnimFrameUpdatedEvent;
 import com.mojang.logging.LogUtils;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -11,12 +12,13 @@ import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.util.GsonHelper;
 import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraftforge.common.MinecraftForge;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import slimeknights.mantle.util.JsonHelper;
 import slimeknights.tconstruct.library.client.materials.MaterialRenderInfoLoader;
 
 import java.util.*;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import static com.kirisamey.toomanytinkers.rendering.materialmap.MaterialMapUpdater.*;
@@ -44,6 +46,8 @@ public class MaterialMapsManager {
         MAT3D_MAP.clear();
 
         MAT_EMISSIVE_MAP.clear();
+
+        MaterialAnimMapManager.clear();
     }
 
     private static int tryAddMat1DMap(ResourceLocation location) {
@@ -72,14 +76,14 @@ public class MaterialMapsManager {
         id = MAT3D_MAP.getOrDefault(location, -1);
         if (id >= 0) return new MatType.Mat3D(id + unitsFor1D, emissivity);
 
-        // todo: 4D get
+        id = MaterialAnimMapManager.tryGetAnimIndex(location);
+        if (id >= 0) return new MatType.Mat4D(id, emissivity);
 
         return new MatType.MatNotFound();
     }
 
-    public static int getTintIfIs4D(ResourceLocation location) {
-        // todo: 4D get
-        return -1;
+    public static int tryGetAnimId(ResourceLocation location) {
+        return MaterialAnimMapManager.tryGetAnimIndex(location);
     }
 
     // </editor-fold>
@@ -102,71 +106,8 @@ public class MaterialMapsManager {
 
         for (var entry : jsons.entrySet()) {
             var location = entry.getKey();
-
-            try {
-                var json = GsonHelper.convertToJsonObject(entry.getValue(), location.toString());
-
-                // none or inherited
-                if (!json.has("generator")) {
-                    if (json.has("parent")) {
-                        var parent = ResourceLocation.tryParse(json.get("parent").getAsString());
-                        MAT_INHERITED_MAP.putIfAbsent(location, parent);
-                        LogUtils.getLogger().info("Read Inherited material info {} succeed!", location);
-                        continue;
-                    }
-                    LogUtils.getLogger().warn("Material {} has neither 'generator' nor 'parent'", location);
-                    continue;
-                }
-
-                JsonElement emissivityJson = null;
-                int emissivity = 0;
-                if (json.has("emissivity")) emissivityJson = json.get("emissivity"); // 未雨绸缪
-                if (json.has("luminosity")) emissivityJson = json.get("luminosity");
-                if (emissivityJson != null) emissivity = emissivityJson.getAsInt();
-
-                var generator = json.get("generator");
-                if (!generator.isJsonObject()) {
-                    LogUtils.getLogger().error("'generator' field of material {} is not an object", location);
-                    continue;
-                }
-                var transformerJs = generator.getAsJsonObject().get("transformer");
-                if (transformerJs == null) {
-                    LogUtils.getLogger().error("Material {} has a 'generator' but has no 'generator.transformer'", location);
-                    continue;
-                }
-                if (!transformerJs.isJsonObject()) {
-                    LogUtils.getLogger().error("'generator.transformer' field of material {} is not an object", location);
-                    continue;
-                }
-                var transformer = transformerJs.getAsJsonObject();
-                var type = transformer.get("type").getAsString();
-                switch (type) {
-                    case "tconstruct:recolor_sprite":
-                        var infosRs = getRecolorSpriteMatInfo(transformer, location);
-                        matInfos.addAll(infosRs);
-                        break;
-                    case "tconstruct:grey_to_sprite":
-                        var infosGts = getGreyToSpriteMatInfo(transformer, location);
-                        matInfos.addAll(infosGts);
-                        break;
-                    case "tconstruct:animated_sprite":
-                        var infosAs = getAnimatedSpriteMatInfo(transformer, location);
-                        matInfos.addAll(infosAs);
-                        break;
-                    case "tconstruct:frames":
-                        LogUtils.getLogger().error("Transformer 'tconstruct:frames' has not supported yet, material {} skipped", location);
-                        break;
-                    default:
-                        LogUtils.getLogger().error("Material {} has a unknown generator transformer type: {}", location, type);
-                        break;
-                }
-                MAT_EMISSIVE_MAP.put(location, emissivity);
-
-            } catch (IllegalStateException e) {
-                LogUtils.getLogger().error("Failed to get material generator info for {}", location, e);
-            } catch (JsonSyntaxException e) {
-                LogUtils.getLogger().error("Failed to read material generator info for {}", location, e);
-            }
+            var mats = addMatInfo(entry.getValue(), location);
+            matInfos.addAll(mats);
         }
 
         // todo: 在这里，我们要开一个lifetime事件，让其他人能向我们这里注册材质。
@@ -197,7 +138,79 @@ public class MaterialMapsManager {
         return matInfos.stream().toList();
     }
 
-    private static @NotNull Collection<MatInfo> getRecolorSpriteMatInfo(JsonObject transformer, ResourceLocation location) {
+    private static List<MatInfo> addMatInfo(JsonElement entry, ResourceLocation location) {
+        try {
+            var json = GsonHelper.convertToJsonObject(entry, location.toString());
+
+            // none or inherited
+            if (!json.has("generator")) {
+                if (json.has("parent")) {
+                    var parent = ResourceLocation.tryParse(json.get("parent").getAsString());
+                    MAT_INHERITED_MAP.putIfAbsent(location, parent);
+                    LogUtils.getLogger().info("Read Inherited material info {} succeed!", location);
+                    return List.of();
+                }
+                LogUtils.getLogger().warn("Material {} has neither 'generator' nor 'parent'", location);
+                return List.of();
+            }
+
+            JsonElement emissivityJson = null;
+            int emissivity = 0;
+            if (json.has("emissivity")) emissivityJson = json.get("emissivity"); // 未雨绸缪
+            if (json.has("luminosity")) emissivityJson = json.get("luminosity");
+            if (emissivityJson != null) emissivity = emissivityJson.getAsInt();
+
+            var generator = json.get("generator");
+            if (!generator.isJsonObject()) {
+                LogUtils.getLogger().error("'generator' field of material {} is not an object", location);
+                return List.of();
+            }
+            var transformerJs = generator.getAsJsonObject().get("transformer");
+            if (transformerJs == null) {
+                LogUtils.getLogger().error("Material {} has a 'generator' but has no 'generator.transformer'", location);
+                return List.of();
+            }
+            if (!transformerJs.isJsonObject()) {
+                LogUtils.getLogger().error("'generator.transformer' field of material {} is not an object", location);
+                return List.of();
+            }
+            var transformer = transformerJs.getAsJsonObject();
+            return addMatInfoFromTransformer(transformer, location, emissivity, -1);
+
+        } catch (IllegalStateException e) {
+            LogUtils.getLogger().error("Failed to get material generator info for {}", location, e);
+        } catch (JsonSyntaxException e) {
+            LogUtils.getLogger().error("Failed to read material generator info for {}", location, e);
+        }
+
+        return List.of();
+    }
+
+    private static @NotNull List<MatInfo> addMatInfoFromTransformer(JsonObject transformer, ResourceLocation location, int emissivity, int frame) {
+        var type = transformer.get("type").getAsString();
+        List<MatInfo> result = List.of();
+        switch (type) {
+            case "tconstruct:recolor_sprite":
+                result = addRecolorSpriteMatInfo(transformer, location);
+                break;
+            case "tconstruct:grey_to_sprite":
+                result = addGreyToSpriteMatInfo(transformer, location, frame);
+                break;
+            case "tconstruct:animated_sprite":
+                result = addAnimatedSpriteMatInfo(transformer, location);
+                break;
+            case "tconstruct:frames":
+                result = addFramesMatInfo(transformer, location);
+                break;
+            default:
+                LogUtils.getLogger().error("Material {} has a unknown generator transformer type: {}", location, type);
+                break;
+        }
+        MAT_EMISSIVE_MAP.put(location, emissivity);
+        return result;
+    }
+
+    private static @NotNull List<MatInfo> addRecolorSpriteMatInfo(JsonObject transformer, ResourceLocation location) {
         try {
             var colorMapping = transformer.getAsJsonObject("color_mapping");
             var type = colorMapping.get("type").getAsString();
@@ -246,7 +259,7 @@ public class MaterialMapsManager {
         }
     }
 
-    private static @NotNull Collection<MatInfo> getGreyToSpriteMatInfo(JsonObject transformer, ResourceLocation location) {
+    private static @NotNull List<MatInfo> addGreyToSpriteMatInfo(JsonObject transformer, ResourceLocation location, int frame) {
         try {
             var palette = transformer.getAsJsonArray("palette");
             var spriteMaps = palette.asList().stream().map(p -> {
@@ -264,7 +277,7 @@ public class MaterialMapsManager {
 
             // try to add to map
             var index = tryAddMat3DMap(location);
-            var mat = new MatInfo.M3D(location, index, spriteMaps, 0);
+            var mat = new MatInfo.M3D(location, index, spriteMaps, frame);
 
             if (index < 0) {
                 LogUtils.getLogger().error("3D Material {} did not added to map, there is duplicated already exists? But why?", mat.getLocation());
@@ -284,7 +297,7 @@ public class MaterialMapsManager {
             }
 
             LogUtils.getLogger().info("Read 3D material info {} succeed!", location);
-            return List.of(new MatInfo.M3D(location, index, spriteMaps, 0));
+            return List.of(mat);
         } catch (IllegalStateException | NullPointerException | UnsupportedOperationException |
                  ClassCastException | NumberFormatException e) {
             LogUtils.getLogger().error("Failed to read 3D material generator transformer info for {}", location, e);
@@ -292,9 +305,81 @@ public class MaterialMapsManager {
         }
     }
 
-    private static @NotNull Collection<MatInfo> getAnimatedSpriteMatInfo(JsonObject transformer, ResourceLocation location) {
-        LogUtils.getLogger().error("4D Info has not implemented yet, Material {} will not be registered", location);
-        return List.of();
+    private static @NotNull List<MatInfo> addAnimatedSpriteMatInfo(JsonObject transformer, ResourceLocation location) {
+        try {
+            var metaPath = transformer.get("meta").getAsString();
+            var meta = ResourceLocation.parse(metaPath + ".png");
+            meta = meta.withPrefix("textures/");
+            var animWriter = MaterialAnimMapManager.startAddMat(location, meta);
+            if (animWriter.isEmpty()) {
+                LogUtils.getLogger().error("4D Material {} did not added to map, there is duplicated already exists? But why?", location);
+                return List.of();
+            }
+            List<MatInfo> frameMats = new ArrayList<>();
+            var frames = transformer.get("frames").getAsInt();
+            for (int frame = 0; frame < frames; frame++) {
+                var local = location.withSuffix("/%d".formatted(frame));
+                var mats = addGreyToSpriteMatInfo(transformer, local, frame);
+                frameMats.addAll(mats);
+
+                if (mats.isEmpty()) {
+                    animWriter.get().addFrame(false, -1);
+                } else if (mats.get(0) instanceof MatInfo.M1D) {
+                    animWriter.get().addFrame(false, mat1dNext - 1);
+                } else if (mats.get(0) instanceof MatInfo.M3D) {
+                    animWriter.get().addFrame(true, mat3dNext - 1);
+                } else {
+                    LogUtils.getLogger().error("WTF? Frame {} in 4D material {} parsed as neither Mat1D nor Mat3D",
+                            frame, location);
+                    return List.of();
+                }
+            }
+            LogUtils.getLogger().info("Read 4D material info {} succeed!", location);
+            return frameMats;
+        } catch (IllegalStateException | NullPointerException | UnsupportedOperationException |
+                 ClassCastException | NumberFormatException e) {
+            LogUtils.getLogger().error("Failed to read 4D material generator transformer info for {}", location, e);
+            return List.of();
+        }
+    }
+
+    private static @NotNull List<MatInfo> addFramesMatInfo(JsonObject transformer, ResourceLocation location) {
+        try {
+            var metaPath = transformer.get("meta").getAsString();
+            var meta = ResourceLocation.parse(metaPath + ".png");
+            meta = meta.withPrefix("textures/");
+            var animWriter = MaterialAnimMapManager.startAddMat(location, meta);
+            if (animWriter.isEmpty()) {
+                LogUtils.getLogger().error("4D(frames) Material {} did not added to map, there is duplicated already exists? But why?", location);
+                return List.of();
+            }
+            List<MatInfo> frameMats = new ArrayList<>();
+            var frames = transformer.getAsJsonArray("frames");
+            for (int frame = 0; frame < frames.size(); frame++) {
+                var trans = frames.get(frame).getAsJsonObject();
+                var local = location.withSuffix("/%d".formatted(frame));
+                var mats = addMatInfoFromTransformer(trans, local, 0, frame);
+                frameMats.addAll(mats);
+
+                if (mats.isEmpty()) {
+                    animWriter.get().addFrame(false, -1);
+                } else if (mats.get(0) instanceof MatInfo.M1D) {
+                    animWriter.get().addFrame(false, mat1dNext - 1);
+                } else if (mats.get(0) instanceof MatInfo.M3D) {
+                    animWriter.get().addFrame(true, mat3dNext - 1);
+                } else {
+                    LogUtils.getLogger().error("WTF? Frame {} in 4D(frames) material {} parsed as neither Mat1D nor Mat3D",
+                            frame, location);
+                    return List.of();
+                }
+            }
+            LogUtils.getLogger().info("Read 4D(frames) material info {} succeed!", location);
+            return frameMats;
+        } catch (IllegalStateException | NullPointerException | UnsupportedOperationException |
+                 ClassCastException | NumberFormatException e) {
+            LogUtils.getLogger().error("Failed to read frames material generator transformer info for {}", location, e);
+            return List.of();
+        }
     }
 
     // </editor-fold>
@@ -318,8 +403,9 @@ public class MaterialMapsManager {
             @Getter private int emissivity;
         }
 
+        @AllArgsConstructor
         public static class Mat4D extends MatType {
-            @Getter private int tint;
+            @Getter private int anim;
             @Getter private int emissivity;
         }
     }

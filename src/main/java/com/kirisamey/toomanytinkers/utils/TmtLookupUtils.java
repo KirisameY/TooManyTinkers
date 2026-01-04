@@ -2,7 +2,6 @@ package com.kirisamey.toomanytinkers.utils;
 
 import com.ibm.icu.impl.Pair;
 import com.kirisamey.toomanytinkers.configs.TmtExcludes;
-import com.kirisamey.toomanytinkers.mixin.ToolModelMixin;
 import com.kirisamey.toomanytinkers.rendering.materialmap.MaterialMapTextureManager;
 import com.kirisamey.toomanytinkers.rendering.materialmap.MaterialMapsManager;
 import com.mojang.datafixers.util.Function3;
@@ -30,15 +29,15 @@ public class TmtLookupUtils {
 
         var vtx = -1;
         var emissivity = 0;
-        var tint = -1;
+        var anim = -1;
         if (info instanceof MaterialMapsManager.MatType.Mat1D m1d) {
-            vtx = getVertex(m1d.getId(), false, isLarge);
+            vtx = getVertexColor(m1d.getId(), false, isLarge);
             emissivity = m1d.getEmissivity();
         } else if (info instanceof MaterialMapsManager.MatType.Mat3D m3d) {
-            vtx = getVertex(m3d.getId(), true, isLarge);
+            vtx = getVertexColor(m3d.getId(), true, isLarge);
             emissivity = m3d.getEmissivity();
         } else if (info instanceof MaterialMapsManager.MatType.Mat4D m4d) {
-            tint = m4d.getTint();
+            anim = m4d.getAnim();
             emissivity = m4d.getEmissivity();
         } else {
             LogUtils.getLogger().debug("[TMT/{}] pair <{}, {}> has been excluded or not mapped, replace cancelled, now getting fallback",
@@ -64,11 +63,13 @@ public class TmtLookupUtils {
         var spr = spriteGetter.apply(texture);
 
         LogUtils.getLogger().debug("[TMT/{}] replaced sprite for part: {}, mat: {}, emissivity: {}", logStage, texture.texture(), matLocation, emissivity);
-        return Pair.of(new MaterialRenderInfo.TintedSprite(spr, vtx, emissivity), tint);
+        return Pair.of(new MaterialRenderInfo.TintedSprite(spr, vtx, emissivity), anim);
     }
 
-    private static int getVertex(
+    public static int getVertexColor(
             int id, boolean is3D, boolean isLarge) {
+        if (id < 0) return 0xffffffff;
+
         int a = 0x7f;
         if (is3D) a -= 0x40;
         if (isLarge) a -= 0x20;
