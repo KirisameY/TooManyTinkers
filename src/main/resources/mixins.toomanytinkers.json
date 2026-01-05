@@ -5,8 +5,8 @@
   "compatibilityLevel": "JAVA_17",
   "refmap": "toomanytinkers.refmap.json",
   "mixins": [
+    "PartModelMixin",
     "ToolModelMixin",
-    "PartModelMixin"
   ],
   "injectors": {
     "defaultRequire": 1

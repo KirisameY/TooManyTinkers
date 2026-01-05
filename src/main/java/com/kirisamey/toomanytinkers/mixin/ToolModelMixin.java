@@ -2,13 +2,12 @@ package com.kirisamey.toomanytinkers.mixin;
 
 import com.kirisamey.toomanytinkers.configs.TmtExcludes;
 import com.kirisamey.toomanytinkers.rendering.TmtAnimColorBakedQuad;
-import com.kirisamey.toomanytinkers.rendering.materialmap.MaterialMapsManager;
 import com.kirisamey.toomanytinkers.rendering.TmtRenderTypes;
 import com.kirisamey.toomanytinkers.utils.TmtLookupUtils;
+import com.kirisamey.toomanytinkers.utils.TmtMixinUtils;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.llamalad7.mixinextras.sugar.Local;
-import com.llamalad7.mixinextras.sugar.ref.LocalRef;
 import com.mojang.math.Transformation;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
@@ -17,7 +16,6 @@ import net.minecraftforge.client.RenderTypeGroup;
 import net.minecraftforge.client.model.geometry.IGeometryBakingContext;
 import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Slice;
 import slimeknights.mantle.client.model.util.MantleItemLayerModel;
@@ -66,9 +64,12 @@ public class ToolModelMixin {
     private static MaterialRenderInfo.TintedSprite replaceNormalMatSprite(
             Function<Material, TextureAtlasSprite> spriteGetter, Material texture, MaterialVariantId material,
             Operation<MaterialRenderInfo.TintedSprite> original) {
-        return TmtLookupUtils.fixedGetMaterialSprite(
+        var result = TmtLookupUtils.fixedGetMaterialSprite(
                 spriteGetter, texture, material, false, original::call, "getSmallMatSprite"
-        ).first;
+        );
+        TmtMixinUtils.ToolModel.animForNormalQuads = result.second;
+        TmtMixinUtils.ToolModel.excludedForNormalQuads = TmtExcludes.isExcluded(texture.texture(), material.getLocation('_'));
+        return result.first;
     }
 
 
@@ -102,20 +103,13 @@ public class ToolModelMixin {
     )
     private static List<BakedQuad> replaceNormalQuadTints(
             int color, int tint, TextureAtlasSprite sprite, Transformation transform, int emissivity,
-            @Nullable ItemLayerPixels pixels, @NotNull Operation<List<BakedQuad>> original,
-            @Local(name = "material") MaterialVariantId material,
-            @Local(argsOnly = true) IGeometryBakingContext owner
-            //@Local(name = "part") ToolModel.ToolPart part
-    ) {
-        // todo: fuck it, i cant do that to make exclude work on normal quads
-        //       fuck slimeknights, fuck mixin-extras
-        //       * And the situation is the same on PartModel's side.
-//        var partId = owner.getMaterial(((ToolPartAccessor)part).getName(false)).texture();
-        var matId = material.getLocation('_');
-        var anim = MaterialMapsManager.tryGetAnimId(matId);
+            @Nullable ItemLayerPixels pixels, @NotNull Operation<List<BakedQuad>> original) {
+        var anim = TmtMixinUtils.ToolModel.animForNormalQuads;
+        var excluded = TmtMixinUtils.ToolModel.excludedForNormalQuads;
+        TmtMixinUtils.ToolModel.resetForNormalQuads();
 
         var result = original.call(color, tint, sprite, transform, emissivity, pixels);
-//        if (TmtExcludes.isExcluded(partId, matId)) return result; //exclude
+        if (excluded) return result; //exclude
         if (anim >= 0) result = result.stream()
                 .map(q -> (BakedQuad) TmtAnimColorBakedQuad.fromBakedQuad(q, anim, false))
                 .toList();
@@ -154,3 +148,4 @@ public class ToolModelMixin {
         return result;
     }
 }
+

@@ -75,7 +75,7 @@ public class TmtExcludes {
                         HashMap::new,
                         Collectors.mapping(p -> p.second, Collectors.toList())
                 ));
-        final HashMap<String, @NotNull Map<String, Boolean>> exacts = rule.prefixes.stream()
+        final HashMap<String, @NotNull Map<String, Boolean>> exacts = rule.exacts.stream()
                 .map(location -> Pair.of(
                         location.getNamespace(),
                         Pair.of(location.getPath(), true))
