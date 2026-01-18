@@ -27,7 +27,23 @@ public class TmtConfig {
             .comment("支持 '*' & 'modid:*' & 'modid:any/path/*' 格式作为通配符")
             .comment("注意不支持 '*%*'，你想写这个不如直接卸了mod")
             .defineListAllowEmpty("exclude_pairs", List.of(
-                    "tconstruct:item/tool/armor/slime/helmet_skull%*"
+                    "tconstruct:item/tool/armor/slime/helmet_skull%*",
+                    "tconstruct:item/tool/parts/large_plate%tconstruct:pig_iron",
+                    "tconstruct:item/tool/broad_axe/binding%tconstruct:pig_iron",
+                    "tconstruct:item/tool/broad_axe/large/binding%tconstruct:pig_iron",
+                    "tconstruct:item/tool/cleaver/guard%tconstruct:pig_iron",
+                    "tconstruct:item/tool/cleaver/large/guard%tconstruct:pig_iron",
+                    "tconstruct:item/tool/dagger/crossguard%tconstruct:pig_iron",
+                    "tconstruct:item/tool/excavator/binding%tconstruct:pig_iron",
+                    "tconstruct:item/tool/excavator/large/binding%tconstruct:pig_iron",
+                    "tconstruct:item/tool/hand_axe/binding%tconstruct:pig_iron",
+                    "tconstruct:item/tool/kama/binding%tconstruct:pig_iron",
+                    "tconstruct:item/tool/pickaxe/binding%tconstruct:pig_iron",
+                    "tconstruct:item/tool/scythe/binding%tconstruct:pig_iron",
+                    "tconstruct:item/tool/scythe/large/binding%tconstruct:pig_iron",
+                    "tconstruct:item/tool/sledge_hammer/head%tconstruct:pig_iron",
+                    "tconstruct:item/tool/sledge_hammer/large/head%tconstruct:pig_iron",
+                    "tconstruct:item/tool/sword/guard%tconstruct:pig_iron"
             ), TmtConfig::validateExclude);
 
     static public final ForgeConfigSpec SPEC = BUILDER.build();
