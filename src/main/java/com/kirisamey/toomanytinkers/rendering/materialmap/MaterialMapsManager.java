@@ -36,6 +36,8 @@ public class MaterialMapsManager {
 
     private static final Map<ResourceLocation, Integer> MAT_EMISSIVE_MAP = new HashMap<>();
 
+    private static final Map<ResourceLocation, List<String>> MAT_FALLBACKS_MAP = new HashMap<>();
+
     @Getter private static int unitsFor1D = 1;
 
     private static void clearMaps() {
@@ -46,6 +48,7 @@ public class MaterialMapsManager {
         MAT3D_MAP.clear();
 
         MAT_EMISSIVE_MAP.clear();
+        MAT_FALLBACKS_MAP.clear();
 
         MaterialAnimMapManager.clear();
     }
@@ -69,15 +72,16 @@ public class MaterialMapsManager {
         if (locin != null) location = locin;
 
         var emissivity = MAT_EMISSIVE_MAP.getOrDefault(location, 0);
+        var fallbacks = MAT_FALLBACKS_MAP.getOrDefault(location, List.of());
 
         var id = MAT1D_MAP.getOrDefault(location, -1);
-        if (id >= 0) return new MatType.Mat1D(id, emissivity);
+        if (id >= 0) return new MatType.Mat1D(id, emissivity, fallbacks);
 
         id = MAT3D_MAP.getOrDefault(location, -1);
-        if (id >= 0) return new MatType.Mat3D(id + unitsFor1D, emissivity);
+        if (id >= 0) return new MatType.Mat3D(id + unitsFor1D, emissivity, fallbacks);
 
         id = MaterialAnimMapManager.tryGetAnimIndex(location);
-        if (id >= 0) return new MatType.Mat4D(id, emissivity);
+        if (id >= 0) return new MatType.Mat4D(id, emissivity, fallbacks);
 
         return new MatType.MatNotFound();
     }
@@ -152,6 +156,17 @@ public class MaterialMapsManager {
                 }
                 LogUtils.getLogger().warn("Material {} has neither 'generator' nor 'parent'", location);
                 return List.of();
+            }
+
+            if (json.has("fallbacks")) {
+                var fallbacksJ = json.get("fallbacks");
+                if (fallbacksJ.isJsonArray()) {
+                    var fallbacks = fallbacksJ.getAsJsonArray()
+                            .asList().stream()
+                            .map(JsonElement::getAsString)
+                            .toList();
+                    MAT_FALLBACKS_MAP.put(location, fallbacks);
+                }
             }
 
             JsonElement emissivityJson = null;
@@ -393,20 +408,23 @@ public class MaterialMapsManager {
 
         @AllArgsConstructor
         public static class Mat1D extends MatType {
-            @Getter private int id;
-            @Getter private int emissivity;
+            @Getter private final int id;
+            @Getter private final int emissivity;
+            @Getter private final List<String> fallbacks;
         }
 
         @AllArgsConstructor
         public static class Mat3D extends MatType {
-            @Getter private int id;
-            @Getter private int emissivity;
+            @Getter private final int id;
+            @Getter private final int emissivity;
+            @Getter private final List<String> fallbacks;
         }
 
         @AllArgsConstructor
         public static class Mat4D extends MatType {
-            @Getter private int anim;
-            @Getter private int emissivity;
+            @Getter private final int anim;
+            @Getter private final int emissivity;
+            @Getter private final List<String> fallbacks;
         }
     }
 

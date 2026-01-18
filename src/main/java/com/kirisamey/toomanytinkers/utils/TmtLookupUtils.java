@@ -6,13 +6,19 @@ import com.kirisamey.toomanytinkers.rendering.materialmap.MaterialMapTextureMana
 import com.kirisamey.toomanytinkers.rendering.materialmap.MaterialMapsManager;
 import com.mojang.datafixers.util.Function3;
 import com.mojang.logging.LogUtils;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.texture.AbstractTexture;
+import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.Material;
 import net.minecraft.util.FastColor;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.inventory.InventoryMenu;
 import org.jetbrains.annotations.NotNull;
 import slimeknights.tconstruct.library.client.materials.MaterialRenderInfo;
 import slimeknights.tconstruct.library.materials.definition.MaterialVariantId;
 
+import java.util.List;
 import java.util.function.Function;
 
 public class TmtLookupUtils {
@@ -30,15 +36,19 @@ public class TmtLookupUtils {
         var vtx = -1;
         var emissivity = 0;
         var anim = -1;
+        List<String> fallbacks = List.of();
         if (info instanceof MaterialMapsManager.MatType.Mat1D m1d) {
             vtx = getVertexColor(m1d.getId(), false, isLarge);
             emissivity = m1d.getEmissivity();
+            fallbacks = m1d.getFallbacks();
         } else if (info instanceof MaterialMapsManager.MatType.Mat3D m3d) {
             vtx = getVertexColor(m3d.getId(), true, isLarge);
             emissivity = m3d.getEmissivity();
+            fallbacks = m3d.getFallbacks();
         } else if (info instanceof MaterialMapsManager.MatType.Mat4D m4d) {
             anim = m4d.getAnim();
             emissivity = m4d.getEmissivity();
+            fallbacks = m4d.getFallbacks();
         } else {
             LogUtils.getLogger().debug("[TMT/{}] pair <{}, {}> has been excluded or not mapped, replace cancelled, now getting fallback",
                     logStage, texture.texture(), matLocation);
@@ -60,7 +70,17 @@ public class TmtLookupUtils {
             return Pair.of(result, -1);
         }
 
-        var spr = spriteGetter.apply(texture);
+        TextureAtlasSprite spr = spriteGetter.apply(texture);
+
+        var modelManager = Minecraft.getInstance().getModelManager();
+        for (var matFallback : fallbacks) {
+            var partId = texture.texture().withSuffix("_" + matFallback);
+            var tex = modelManager.getAtlas(InventoryMenu.BLOCK_ATLAS).getSprite(partId);
+            if (tex.contents().name() != MissingTextureAtlasSprite.getLocation()) {
+                spr = tex;
+                break;
+            }
+        }
 
         LogUtils.getLogger().debug("[TMT/{}] replaced sprite for part: {}, mat: {}, emissivity: {}", logStage, texture.texture(), matLocation, emissivity);
         return Pair.of(new MaterialRenderInfo.TintedSprite(spr, vtx, emissivity), anim);
