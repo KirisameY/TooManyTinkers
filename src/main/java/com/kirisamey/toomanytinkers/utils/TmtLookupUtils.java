@@ -7,14 +7,14 @@ import com.kirisamey.toomanytinkers.rendering.materialmap.MaterialMapsManager;
 import com.mojang.datafixers.util.Function3;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.texture.AbstractTexture;
 import net.minecraft.client.renderer.texture.MissingTextureAtlasSprite;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.client.resources.model.Material;
 import net.minecraft.util.FastColor;
-import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.InventoryMenu;
 import org.jetbrains.annotations.NotNull;
+import org.joml.Vector4f;
+import org.joml.Vector4i;
 import slimeknights.tconstruct.library.client.materials.MaterialRenderInfo;
 import slimeknights.tconstruct.library.materials.definition.MaterialVariantId;
 
@@ -86,9 +86,8 @@ public class TmtLookupUtils {
         return Pair.of(new MaterialRenderInfo.TintedSprite(spr, vtx, emissivity), anim);
     }
 
-    public static int getVertexColor(
-            int id, boolean is3D, boolean isLarge) {
-        if (id < 0) return 0xffffffff;
+    public static Vector4i getVertexColorRgba(int id, boolean is3D, boolean isLarge) {
+        if (id < 0) return new Vector4i(0xff);
 
         int a = 0x7f;
         if (is3D) a -= 0x40;
@@ -107,6 +106,16 @@ public class TmtLookupUtils {
             r = id / h;
         }
 
-        return b + (g << 8) + (r << 16) + (a << 24);
+        return new Vector4i(r, g, b, a);
+    }
+
+    public static int getVertexColor(int id, boolean is3D, boolean isLarge) {
+        var rgba = getVertexColorRgba(id, is3D, isLarge);
+        return rgba.z + (rgba.y << 8) + (rgba.x << 16) + (rgba.w << 24);
+    }
+
+    public static Vector4f getVertexColorRgbaF(int id, boolean is3D, boolean isLarge) {
+        var rgba = getVertexColorRgba(id, is3D, isLarge);
+        return new Vector4f(rgba).div(255f);
     }
 }
