@@ -306,29 +306,13 @@ public class MaterialMapsManager {
             var metaPath = transformer.get("meta").getAsString();
             var meta = ResourceLocation.parse(metaPath + ".png");
             meta = meta.withPrefix("textures/");
-//            var animWriter = MaterialAnimMapManager.startAddMat(location, meta);
-//            if (animWriter.isEmpty()) {
-//                LogUtils.getLogger().error("4D Material {} did not added to map, there is duplicated already exists? But why?", location);
-//                return List.of();
-//            }
+
             List<MatInfo> frameMats = new ArrayList<>();
             var frames = transformer.get("frames").getAsInt();
             for (int frame = 0; frame < frames; frame++) {
                 var local = location.withSuffix("/%d".formatted(frame));
                 var mats = getGreyToSpriteMatInfo(transformer, local, frame);
                 frameMats.addAll(mats);
-
-//                if (mats.isEmpty()) {
-//                    animWriter.get().addFrame(false, -1);
-//                } else if (mats.get(0) instanceof MatInfo.M1D) {
-//                    animWriter.get().addFrame(false, mat1dNext - 1);
-//                } else if (mats.get(0) instanceof MatInfo.M3D) {
-//                    animWriter.get().addFrame(true, mat3dNext - 1);
-//                } else {
-//                    LogUtils.getLogger().error("WTF? Frame {} in 4D material {} parsed as neither Mat1D nor Mat3D",
-//                            frame, location);
-//                    return List.of();
-//                }
             }
             LogUtils.getLogger().info("Read 4D material info {} succeed!", location);
             return List.of(new MatInfo.M4D(location, meta, frameMats));
@@ -344,11 +328,7 @@ public class MaterialMapsManager {
             var metaPath = transformer.get("meta").getAsString();
             var meta = ResourceLocation.parse(metaPath + ".png");
             meta = meta.withPrefix("textures/");
-//            var animWriter = MaterialAnimMapManager.startAddMat(location, meta);
-//            if (animWriter.isEmpty()) {
-//                LogUtils.getLogger().error("4D(frames) Material {} did not added to map, there is duplicated already exists? But why?", location);
-//                return List.of();
-//            }
+
             List<MatInfo> frameMats = new ArrayList<>();
             var frames = transformer.getAsJsonArray("frames");
             for (int frame = 0; frame < frames.size(); frame++) {
@@ -356,18 +336,6 @@ public class MaterialMapsManager {
                 var local = location.withSuffix("/%d".formatted(frame));
                 var mats = getMatInfoFromTransformer(trans, local, 0, frame);
                 frameMats.addAll(mats);
-
-//                if (mats.isEmpty()) {
-//                    animWriter.get().addFrame(false, -1);
-//                } else if (mats.get(0) instanceof MatInfo.M1D) {
-//                    animWriter.get().addFrame(false, mat1dNext - 1);
-//                } else if (mats.get(0) instanceof MatInfo.M3D) {
-//                    animWriter.get().addFrame(true, mat3dNext - 1);
-//                } else {
-//                    LogUtils.getLogger().error("WTF? Frame {} in 4D(frames) material {} parsed as neither Mat1D nor Mat3D",
-//                            frame, location);
-//                    return List.of();
-//                }
             }
             LogUtils.getLogger().info("Read 4D(frames) material info {} succeed!", location);
             return List.of(new MatInfo.M4D(location, meta, frameMats));
@@ -391,11 +359,8 @@ public class MaterialMapsManager {
         }
 
         // calculate size of tex
-        int count1D = 0, unitsFor3D = 0;
-        for (var info : matInfos) {
-            if (info instanceof MatInfo.M1D) count1D++;
-            else if (info instanceof MatInfo.M3D) unitsFor3D++;
-        }
+        int count1D = mat1dNext;
+        int unitsFor3D = mat3dNext;
         unitsFor1D = (int) Math.ceil(((double) count1D) / MaterialMapTextureManager.TEX_UNIT);
         var totalUnits = unitsFor1D + unitsFor3D;
         {
@@ -434,6 +399,12 @@ public class MaterialMapsManager {
             ).toList();
             var is32x = imgs.stream().anyMatch(img -> img.getWidth() >= 32 && img.getHeight() >= 32);
             var index = tryAddMat3DMap(m3.getLocation(), is32x);
+            if (is32x) for (int i = 1; i < 4; i++) {
+                var index0 = tryAddMat3DMap(m3.getLocation().withSuffix("/p_%d".formatted(i)), false);
+                if (index0 < 0) {
+                    LogUtils.getLogger().error("3D Material part {}/p_{} did not added to map, there is duplicated already exists? But why?", m3.getLocation(), i);
+                }
+            }
             if (index < 0) {
                 LogUtils.getLogger().error("3D Material {} did not added to map, there is duplicated already exists? But why?", m3.getLocation());
                 return Optional.empty();
