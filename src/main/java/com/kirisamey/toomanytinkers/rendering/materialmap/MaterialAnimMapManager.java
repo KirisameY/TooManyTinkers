@@ -8,6 +8,7 @@ import com.kirisamey.toomanytinkers.utils.TmtColorUtils;
 import com.kirisamey.toomanytinkers.utils.TmtLookupUtils;
 import com.mojang.logging.LogUtils;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.metadata.animation.AnimationMetadataSection;
@@ -96,17 +97,25 @@ public class MaterialAnimMapManager {
 
     @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
     public static class AnimMatWriter {
-        private final List<Pair<Boolean, Integer>> list;
+        private final List<FrameInfo> list;
 
-        public void addFrame(boolean is3D, int index) {
-            list.add(Pair.of(is3D, index));
+        public void addFrame(boolean is3D, int index, boolean is32x) {
+            list.add(new FrameInfo(index, is3D, is32x));
         }
+    }
+
+    @SuppressWarnings("ClassCanBeRecord")
+    @RequiredArgsConstructor
+    static class FrameInfo {
+        @Getter private final int id;
+        @Getter private final boolean is3D;
+        @Getter private final boolean is32x;
     }
 
     @RequiredArgsConstructor
     private static class AnimInfo {
         private final int id;
-        private final List<Pair<Boolean, Integer>> frames = new ArrayList<>();
+        private final List<FrameInfo> frames = new ArrayList<>();
         private final AnimationMetadataSection meta;
 
         private int currentFrame = 0;
@@ -116,7 +125,7 @@ public class MaterialAnimMapManager {
 
             currentFrameTime++;
 
-            Pair<Boolean, Integer> newFrameInfo;
+            FrameInfo newFrameInfo;
             var defaultFrameTime = meta.getDefaultFrameTime();
 
             if (meta.frames.isEmpty()) {
@@ -142,11 +151,12 @@ public class MaterialAnimMapManager {
                 newFrameInfo = frames.get(newFrameIndex);
             }
 
-            var is3d = newFrameInfo.first;
-            var index = is3d ? newFrameInfo.second + MaterialMapsManager.getUnitsFor1D() : newFrameInfo.second;
-            var color = TmtLookupUtils.getVertexColor(index, is3d, false);
+            var is3d = newFrameInfo.is3D();
+            var index = is3d ? newFrameInfo.getId() + MaterialMapsManager.getUnitsFor1D() : newFrameInfo.getId();
+            var is32x = newFrameInfo.is32x();
+            var color = TmtLookupUtils.getVertexColor(index, is3d, false, is32x);
             color = TmtColorUtils.Argb2Abgr(color);
-            var largeColor = TmtLookupUtils.getVertexColor(index, is3d, true);
+            var largeColor = TmtLookupUtils.getVertexColor(index, is3d, true, is32x);
             largeColor = TmtColorUtils.Argb2Abgr(largeColor);
             MinecraftForge.EVENT_BUS.post(new MaterialAnimFrameUpdatedEvent(id, currentFrame, color, largeColor));
         }

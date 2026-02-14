@@ -38,11 +38,11 @@ public class TmtLookupUtils {
         var anim = -1;
         List<String> fallbacks = List.of();
         if (info instanceof MaterialMapsManager.MatType.Mat1D m1d) {
-            vtx = getVertexColor(m1d.getId(), false, isLarge);
+            vtx = getVertexColor(m1d.getId(), false, isLarge, false);
             emissivity = m1d.getEmissivity();
             fallbacks = m1d.getFallbacks();
         } else if (info instanceof MaterialMapsManager.MatType.Mat3D m3d) {
-            vtx = getVertexColor(m3d.getId(), true, isLarge);
+            vtx = getVertexColor(m3d.getId(), true, isLarge, m3d.is32x());
             emissivity = m3d.getEmissivity();
             fallbacks = m3d.getFallbacks();
         } else if (info instanceof MaterialMapsManager.MatType.Mat4D m4d) {
@@ -86,12 +86,13 @@ public class TmtLookupUtils {
         return Pair.of(new MaterialRenderInfo.TintedSprite(spr, vtx, emissivity), anim);
     }
 
-    public static Vector4i getVertexColorRgba(int id, boolean is3D, boolean isLarge) {
+    public static Vector4i getVertexColorRgba(int id, boolean is3D, boolean isLarge, boolean isTex32) {
         if (id < 0) return new Vector4i(0xff);
 
         int a = 0x7f;
         if (is3D) a -= 0x40;
         if (isLarge) a -= 0x20;
+        if (isTex32) a -= 0x10;
 
         var h = MaterialMapTextureManager.getTexHeigh();
 
@@ -109,13 +110,13 @@ public class TmtLookupUtils {
         return new Vector4i(r, g, b, a);
     }
 
-    public static int getVertexColor(int id, boolean is3D, boolean isLarge) {
-        var rgba = getVertexColorRgba(id, is3D, isLarge);
+    public static int getVertexColor(int id, boolean is3D, boolean isLarge, boolean isTex32) {
+        var rgba = getVertexColorRgba(id, is3D, isLarge, isTex32);
         return rgba.z + (rgba.y << 8) + (rgba.x << 16) + (rgba.w << 24);
     }
 
-    public static Vector4f getVertexColorRgbaF(int id, boolean is3D, boolean isLarge) {
-        var rgba = getVertexColorRgba(id, is3D, isLarge);
+    public static Vector4f getVertexColorRgbaF(int id, boolean is3D, boolean isLarge, boolean isTex32) {
+        var rgba = getVertexColorRgba(id, is3D, isLarge, isTex32);
         return new Vector4f(rgba).div(255f);
     }
 }

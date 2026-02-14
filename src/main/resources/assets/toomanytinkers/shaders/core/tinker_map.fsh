@@ -37,7 +37,7 @@ void main() {
     #if TEST == 1
 
     // 覆盖测试
-    if (texture(Sampler0, texCoord0).a < 0.05) {
+    if (texture(Sampler0, texCoord0).a < 0.1) {
         discard;
     }
     fragColor = vec4(1.);
@@ -54,7 +54,7 @@ void main() {
 
     // 原始纹理
     vec4 origin = texture(Sampler0, texCoord0);
-    if (origin.a < 0.05) {
+    if (origin.a < 0.1) {
         discard;
     }
     fragColor = origin;
@@ -103,35 +103,27 @@ void main() {
         vec2 uv3d;
         {
             // calc uv for 3d
-            float uvSize = 32. - f_uv16or32 * 16.;
-            vec2 uv = mod(texCoord0 * AtlasSize, uvSize) / uvSize;
+            vec2 uv16 = mod(texCoord0 * AtlasSize, 16.) / 16.;
+            vec2 uv32 = mod(texCoord0 * AtlasSize, 32.) / 32.;
+            float uvScaleOrNot = (1 - f_uv16or32) * f_tex16or32;
+            vec2 uv = uv32 * uvScaleOrNot + uv16 * (1 - uvScaleOrNot);
+
             float grey = originSample.r * 255.;
             vec2 uvg = vec2(floor(grey / 16. + .01), mod(grey, 16.));
+
+            // uv shift for 32x tex
+            float unitShiftOrNot = (1 - f_uv16or32) * (1 - f_tex16or32);
+            float unitShift = (step(0.5, uv32.y) * 1. + step(0.5, uv32.x) * 2.);
+            unit.x += floor((unit.y + unitShift) / (MapSize.y / 16.));
+            unit.y += unitShift * unitShiftOrNot;
+            unit.y = mod(unit.y, MapSize.y / 16.);
+
             uv3d = unit * 256. + uvg * 16. + uv * 16.;
             uv3d /= MapSize;
         }
 
-        vec2 uvf = uv1d * f_d1or3 + uv3d * (1-f_d1or3);
+        vec2 uvf = uv1d * f_d1or3 + uv3d * (1 - f_d1or3);
         color = texture(Sampler3, uvf);
-
-        // if (f_d1or3 > .5) {
-        //     // calc color for 1d
-        //     vec2 uv1d = unit * 256. + vec2(originSample.r * 255., row) + vec2(.5, .5);
-        //     uv1d /= MapSize;
-        //     vec4 color1d = texture(Sampler3, uv1d);
-        //     color = color1d;
-        //     //color = vec4(mapping_data.rgb, 1) + step(100, color1d);
-        // }
-        // else {
-        //     // calc uv for 3d
-        //     float uvSize = 32. - f_uv16or32 * 16.;
-        //     vec2 uv = mod(texCoord0 * AtlasSize, uvSize) / uvSize;
-        //     float grey = originSample.r * 255.;
-        //     vec2 uvg = vec2(floor(grey / 16. + .01), mod(grey, 16.));
-        //     vec2 uv2d = unit * 256. + uvg * 16. + uv * 16.;
-        //     uv2d /= MapSize;
-        //     color = texture(Sampler3, uv2d);
-        // }
     }
 
     if (color.a < 0.1) {

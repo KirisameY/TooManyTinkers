@@ -21,18 +21,23 @@ import org.jetbrains.annotations.NotNull;
 import java.util.List;
 import java.util.Optional;
 
-public class MaterialMapUpdater extends SimplePreparableReloadListener<List<MaterialMapUpdater.MatInfo>> {
+public class MaterialMapUpdater extends SimplePreparableReloadListener<MaterialMapUpdater.MaterialMapUpdatingContext> {
     @Override
-    protected @NotNull List<MatInfo> prepare(@NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profilerFiller) {
+    protected @NotNull MaterialMapUpdatingContext prepare(@NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profilerFiller) {
         // fire the event
         LogUtils.getLogger().debug("Fire the MaterialMappingRestartEvent");
         MinecraftForge.EVENT_BUS.post(new MaterialMappingRestartEvent());
 
-        return MaterialMapsManager.remapData(resourceManager, profilerFiller);
+        var matInfos = MaterialMapsManager.remapData(resourceManager, profilerFiller);
+        return new MaterialMapUpdatingContext(
+                matInfos
+        );
     }
 
     @Override
-    protected void apply(@NotNull List<MatInfo> materialInfos, @NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profilerFiller) {
+    protected void apply(@NotNull MaterialMapUpdatingContext ctx, @NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profilerFiller) {
+        var materialInfos = ctx.matInfos();
+        MaterialMapsManager.addMatsMap(materialInfos, resourceManager, profilerFiller);
         MaterialMapTextureManager.remapTexture(materialInfos, resourceManager, profilerFiller);
 
         // fire the event
@@ -66,11 +71,16 @@ public class MaterialMapUpdater extends SimplePreparableReloadListener<List<Mate
 
 
     // <editor-fold desc="Data Class">
+
+    public record MaterialMapUpdatingContext(
+            List<MatInfo> matInfos
+    ) {
+    }
+
     public static class MatInfo {
         @AllArgsConstructor
         public static class M1D extends MatInfo {
             @Getter private final ResourceLocation location;
-            @Getter private final int index;
             @Getter private final List<ColorMap> colorMaps;
 
             public record ColorMap(int color, int grey) {
@@ -80,12 +90,18 @@ public class MaterialMapUpdater extends SimplePreparableReloadListener<List<Mate
         @AllArgsConstructor
         public static class M3D extends MatInfo {
             @Getter private final ResourceLocation location;
-            @Getter private final int index;
             @Getter private final List<SpriteMap> spriteMaps;
             @Getter private final int frame;
 
             public record SpriteMap(int color, Optional<ResourceLocation> texture, int grey) {
             }
+        }
+
+        @AllArgsConstructor
+        public static class M4D extends MatInfo {
+            @Getter private final ResourceLocation location;
+            @Getter private final ResourceLocation meta;
+            @Getter private final List<MatInfo> frames;
         }
     }
 

@@ -7,6 +7,7 @@ import com.mojang.logging.LogUtils;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.extern.log4j.Log4j2;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.resources.ResourceLocation;
@@ -24,6 +25,7 @@ import java.util.stream.IntStream;
 
 import static com.kirisamey.toomanytinkers.rendering.materialmap.MaterialMapUpdater.*;
 
+@Log4j2
 public class MaterialMapTextureManager {
 
     // <editor-fold desc="texture">
@@ -50,7 +52,12 @@ public class MaterialMapTextureManager {
         for (var mat : materialInfos) {
             if /* those for 1D */ (mat instanceof MatInfo.M1D mat1) {
                 // calculate position
-                var index = mat1.getIndex();
+                var info = MaterialMapsManager.getTexInfo(mat1.getLocation());
+                if (!(info instanceof MaterialMapsManager.MatType.Mat1D m1)) {
+                    log.error("Mat 1d {} doesn't have a 1d map data, map faild", mat1.getLocation());
+                    continue;
+                }
+                var index = m1.getId();
                 var row = index % (texHeigh * TEX_UNIT);
                 var col = index / (texHeigh * TEX_UNIT);
 
@@ -77,7 +84,13 @@ public class MaterialMapTextureManager {
                 LogUtils.getLogger().info("1D Material {} mapped successfully as 1D no.{}", mat1.getLocation(), index);
             } else if /* those for 3D */ (mat instanceof MatInfo.M3D mat3) {
                 // calculate position
-                var index = mat3.getIndex() + MaterialMapsManager.getUnitsFor1D();
+                var info = MaterialMapsManager.getTexInfo(mat3.getLocation());
+                if (!(info instanceof MaterialMapsManager.MatType.Mat3D m3)) {
+                    log.error("Mat 1d {} doesn't have a 3d map data, map faild", mat3.getLocation());
+                    continue;
+                }
+                // todo: 32x的额外部分
+                var index = m3.getId();
                 var gridY = (index % texHeigh) * TEX_UNIT;
                 var gridX = (index / texHeigh) * TEX_UNIT;
 
