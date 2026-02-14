@@ -67,14 +67,16 @@ void main() {
 
 
     vec4 originSample = texture(Sampler0, texCoord0);
-    if (originSample.a < 0.05) {
+    if (originSample.a < 0.1) {
         discard;
     }
 
     // if does not have:
-    // 0.5   - enable
-    // 0.25  - 3d
-    // 0.125 - UV as 32x
+    // 0x80 0.5    - enable
+    // 0x40 0.25   - 3d
+    // 0x20 0.125  - UV as 32x
+    // 0x10 0.0625 - Texture as 32x
+
     float flags = mapping_data.a * 255;
 
     vec4 color;
@@ -85,32 +87,54 @@ void main() {
         // get flags
         float f_d1or3 = step(63.5, mod(flags, 128));
         float f_uv16or32 = step(31.5, mod(flags, 64));
+        float f_tex16or32 = step(15.5, mod(flags, 32));
 
         // get rgb info
         vec2 unit = mapping_data.rg * 255.;
         float row = mapping_data.b * 255.; // for 1d
 
-        if (f_d1or3 > .5) {
+        vec2 uv1d;
+        {
             // calc color for 1d
-            vec2 uv1d = unit * 256. + vec2(originSample.r * 255., row) + vec2(.5, .5);
+            uv1d = unit * 256. + vec2(originSample.r * 255., row) + vec2(.5, .5);
             uv1d /= MapSize;
-            vec4 color1d = texture(Sampler3, uv1d);
-            color = color1d;
-            //color = vec4(mapping_data.rgb, 1) + step(100, color1d);
         }
-        else {
+        
+        vec2 uv3d;
+        {
             // calc uv for 3d
             float uvSize = 32. - f_uv16or32 * 16.;
             vec2 uv = mod(texCoord0 * AtlasSize, uvSize) / uvSize;
             float grey = originSample.r * 255.;
             vec2 uvg = vec2(floor(grey / 16. + .01), mod(grey, 16.));
-            vec2 uv2d = unit * 256. + uvg * 16. + uv * 16.;
-            uv2d /= MapSize;
-            color = texture(Sampler3, uv2d);
+            uv3d = unit * 256. + uvg * 16. + uv * 16.;
+            uv3d /= MapSize;
         }
+
+        vec2 uvf = uv1d * f_d1or3 + uv3d * (1-f_d1or3);
+        color = texture(Sampler3, uvf);
+
+        // if (f_d1or3 > .5) {
+        //     // calc color for 1d
+        //     vec2 uv1d = unit * 256. + vec2(originSample.r * 255., row) + vec2(.5, .5);
+        //     uv1d /= MapSize;
+        //     vec4 color1d = texture(Sampler3, uv1d);
+        //     color = color1d;
+        //     //color = vec4(mapping_data.rgb, 1) + step(100, color1d);
+        // }
+        // else {
+        //     // calc uv for 3d
+        //     float uvSize = 32. - f_uv16or32 * 16.;
+        //     vec2 uv = mod(texCoord0 * AtlasSize, uvSize) / uvSize;
+        //     float grey = originSample.r * 255.;
+        //     vec2 uvg = vec2(floor(grey / 16. + .01), mod(grey, 16.));
+        //     vec2 uv2d = unit * 256. + uvg * 16. + uv * 16.;
+        //     uv2d /= MapSize;
+        //     color = texture(Sampler3, uv2d);
+        // }
     }
 
-    if (color.a < 0.05) {
+    if (color.a < 0.1) {
         discard;
     }
 
