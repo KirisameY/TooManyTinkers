@@ -31,7 +31,7 @@ public class AnimatableTicTool3DUnbakedModel implements IUnbakedGeometry<Animata
     public BakedModel bake(IGeometryBakingContext context, ModelBaker baker, Function<Material, TextureAtlasSprite> spriteGetter, ModelState modelState, ItemOverrides overrides, ResourceLocation modelLocation) {
         var bakedParts = parts.stream().map(p -> {
             var model = baker.bake(p.model(), modelState, spriteGetter);
-            return new AnimatableTicTool3DModelData.BakedPart(p.id(), model, p.toolPart(), p.shift());
+            return new AnimatableTicTool3DModelData.BakedPart(p.id(), model, p.renderType(), p.toolPart(), p.shift());
         }).toList();
         return new AnimatableTicTool3DOriginalBakedModel(bakedParts, transforms, largeTex);
     }

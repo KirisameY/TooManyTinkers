@@ -1,6 +1,8 @@
 package com.kirisamey.toomanytinkers.models.rendering;
 
 import com.kirisamey.toomanytinkers.models.AnimatableTicTool3DFinalBakedModel;
+import com.kirisamey.toomanytinkers.models.AnimatableTicTool3DModelData;
+import com.kirisamey.toomanytinkers.rendering.TmtRenderTypeGetters;
 import com.kirisamey.toomanytinkers.rendering.TmtRenderTypes;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
@@ -17,6 +19,9 @@ import org.jetbrains.annotations.NotNull;
 import org.joml.Vector4f;
 import slimeknights.tconstruct.library.tools.item.ModifiableItem;
 import slimeknights.tconstruct.library.tools.nbt.ToolStack;
+
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 public class AnimatableTicTool3DRenderer extends BlockEntityWithoutLevelRenderer {
     public AnimatableTicTool3DRenderer(BlockEntityRenderDispatcher dispatcher, EntityModelSet modelSet) {
@@ -44,17 +49,24 @@ public class AnimatableTicTool3DRenderer extends BlockEntityWithoutLevelRenderer
         }
 
         var rd = RandomSource.create();
-        var buffer = multiBufferSource.getBuffer(TmtRenderTypes.getTinkerMapping()); // todo: 允许更多RenderType
-//        var buffer = multiBufferSource.getBuffer(RenderType.cutout());
+
         var rgbaColors = model.getToolPartRgbaColors();
 
-        model.getParts().forEach(p -> {
-            var matNo = p.toolPart();
-            var rgba = matNo >= 0 && matNo < rgbaColors.length ? rgbaColors[matNo] : new Vector4f(1);
-            var quads = p.model().getQuads(null, null, rd, ModelData.EMPTY, null);
-            for (var quad : quads) {
-                buffer.putBulkData(poseStack.last(), quad, rgba.x, rgba.y, rgba.z, rgba.w, packedLight, packedOverlay, false);
-            }
+        var grouped = model.getParts().stream().collect(Collectors.groupingBy(AnimatableTicTool3DModelData.BakedPart::renderType));
+        grouped.forEach((rtGetter, parts) -> {
+            var renderType = rtGetter.get();
+            var buffer = multiBufferSource.getBuffer(renderType);
+            parts.forEach(p -> {
+                var rgba = new Vector4f(1);
+                if (p.renderType() == TmtRenderTypeGetters.TINKER_MAPPING.get()) {
+                    var matNo = p.toolPart();
+                    if (matNo >= 0 && matNo < rgbaColors.length) rgba = rgbaColors[matNo];
+                }
+                var quads = p.model().getQuads(null, null, rd, ModelData.EMPTY, null);
+                for (var quad : quads) {
+                    buffer.putBulkData(poseStack.last(), quad, rgba.x, rgba.y, rgba.z, rgba.w, packedLight, packedOverlay, false);
+                }
+            });
         });
     }
 }

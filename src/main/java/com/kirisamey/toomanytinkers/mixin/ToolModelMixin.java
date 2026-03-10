@@ -7,7 +7,6 @@ import com.kirisamey.toomanytinkers.utils.TmtLookupUtils;
 import com.kirisamey.toomanytinkers.utils.TmtMixinUtils;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
-import com.llamalad7.mixinextras.sugar.Local;
 import com.mojang.math.Transformation;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
