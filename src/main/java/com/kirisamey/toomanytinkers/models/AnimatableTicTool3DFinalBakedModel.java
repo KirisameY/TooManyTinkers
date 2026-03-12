@@ -30,12 +30,13 @@ import org.joml.Vector4f;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
 public class AnimatableTicTool3DFinalBakedModel implements BakedModel {
 
-    public AnimatableTicTool3DFinalBakedModel(List<AnimatableTicTool3DModelData.BakedPart> parts, Vector4f[] partArgbColors,
+    public AnimatableTicTool3DFinalBakedModel(AnimatableTicTool3DModelData.BakedBone skeleton, Vector4f[] partArgbColors,
                                               List<Pair<Integer, Integer>> partAnimPairs, ItemTransforms transforms, boolean largeTex) {
-        this.parts = parts;
+        this.skeleton = skeleton;
         this.toolPartRgbaColors = partArgbColors;
         this.transforms = transforms;
 
@@ -51,7 +52,7 @@ public class AnimatableTicTool3DFinalBakedModel implements BakedModel {
 
     private static final ArrayList<ArrayList<Pair<AnimatableTicTool3DFinalBakedModel, Integer>>> ANIM_MAT_COLOR_UPDATE_LIST = new ArrayList<>();
 
-    @Getter private final List<AnimatableTicTool3DModelData.BakedPart> parts;
+    @Getter private final AnimatableTicTool3DModelData.BakedBone skeleton;
     @Getter private final Vector4f[] toolPartRgbaColors;
     @Getter private final ItemTransforms transforms;
     @Getter private final boolean largeTex;
@@ -59,7 +60,11 @@ public class AnimatableTicTool3DFinalBakedModel implements BakedModel {
     @Override
     public @NotNull List<BakedQuad> getQuads(@Nullable BlockState blockState, @Nullable Direction direction, @NotNull RandomSource randomSource) {
         //noinspection deprecation
-        return parts.stream().flatMap(p -> p.model().getQuads(blockState, direction, randomSource).stream()).toList();
+        return skeleton.enumBones().flatMap(
+                b -> b.parts().stream()
+        ).flatMap(
+                p -> p.model().getQuads(blockState, direction, randomSource).stream()
+        ).toList();
     }
 
     @Override public boolean useAmbientOcclusion() {

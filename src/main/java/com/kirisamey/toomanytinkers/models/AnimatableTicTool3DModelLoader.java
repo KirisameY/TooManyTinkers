@@ -1,9 +1,7 @@
 package com.kirisamey.toomanytinkers.models;
 
-import com.google.gson.JsonDeserializationContext;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonSyntaxException;
+import com.google.gson.*;
+import com.ibm.icu.impl.Pair;
 import com.kirisamey.toomanytinkers.TmtRegistries;
 import com.kirisamey.toomanytinkers.TooManyTinkers;
 import com.kirisamey.toomanytinkers.rendering.TmtRenderTypeGetters;
@@ -18,8 +16,9 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.joml.Vector3f;
 
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Supplier;
+import java.util.stream.StreamSupport;
 
 @Log4j2
 public class AnimatableTicTool3DModelLoader implements IGeometryLoader<AnimatableTicTool3DUnbakedModel> {
@@ -36,18 +35,60 @@ public class AnimatableTicTool3DModelLoader implements IGeometryLoader<Animatabl
                                 ResourceLocation.parse(info.get("render_type").getAsString())
                         ) : TmtRenderTypeGetters.TINKER_MAPPING.get();
                 var toolPart = info.has("tool_part") ? info.get("tool_part").getAsInt() : -1;
-                Vector3f shift = new Vector3f();
-                if (info.has("shift")) {
-                    var shiftArray = info.getAsJsonArray("shift");
-                    shift = new Vector3f(
-                            shiftArray.get(0).getAsFloat(),
-                            shiftArray.get(1).getAsFloat(),
-                            shiftArray.get(2).getAsFloat()
+
+                var origin = new Vector3f();
+                if (info.has("origin")) {
+                    var vecArray = info.getAsJsonArray("origin");
+                    origin = new Vector3f(
+                            vecArray.get(0).getAsFloat(),
+                            vecArray.get(1).getAsFloat(),
+                            vecArray.get(2).getAsFloat()
                     );
                 }
 
-                return new AnimatableTicTool3DModelData.UnbakedPart(id, model, renderType, toolPart, shift);
+                var offset = new Vector3f();
+                if (info.has("offset")) {
+                    var vecArray = info.getAsJsonArray("offset");
+                    offset = new Vector3f(
+                            vecArray.get(0).getAsFloat(),
+                            vecArray.get(1).getAsFloat(),
+                            vecArray.get(2).getAsFloat()
+                    );
+                }
+
+                return new AnimatableTicTool3DModelData.UnbakedPart(id, model, renderType, toolPart, origin, offset);
             }).toList();
+
+            var boneJson = Optional.ofNullable(jsonObject.has("bone") ? null : jsonObject.getAsJsonObject("bone"));
+            var skeleton = boneJson.map(o -> {
+                var result = new AnimatableTicTool3DModelData.UnbakedBone("root", List.of(), new ArrayList<>());
+                Queue<Pair<AnimatableTicTool3DModelData.UnbakedBone, JsonObject>> queue = new LinkedList<>();
+                queue.add(Pair.of(result, o));
+                while (!queue.isEmpty()) {
+                    var p = queue.remove();
+                    var b = p.first;
+                    var jo = p.second;
+                    jo.entrySet().stream().map(entry -> {
+                        if (entry.getKey().startsWith("_") || !entry.getValue().isJsonObject()) return null;
+                        return Pair.of(entry.getKey(), (JsonObject) entry.getValue());
+                    }).filter(Objects::nonNull).forEach(entry -> {
+                        var name = entry.first;
+                        var innerJo = entry.second;
+
+                        var boneParts = (innerJo.has("_parts") ?
+                                innerJo.getAsJsonArray("_parts").asList() :
+                                List.<JsonElement>of()
+                        ).stream().map(JsonElement::getAsString).toList();
+
+                        var innerBone = new AnimatableTicTool3DModelData.UnbakedBone(name, boneParts, new ArrayList<>());
+                        b.bones().add(innerBone);
+                        queue.add(Pair.of(innerBone, innerJo));
+                    });
+                }
+                return result;
+            }).orElse(new AnimatableTicTool3DModelData.UnbakedBone(
+                    "root", parts.stream().map(AnimatableTicTool3DModelData.UnbakedPart::id).toList(), new ArrayList<>()
+            ));
 
             var transforms = ItemTransforms.NO_TRANSFORMS;
             if (jsonObject.has("display")) {
@@ -56,7 +97,7 @@ public class AnimatableTicTool3DModelLoader implements IGeometryLoader<Animatabl
 
             var largeTex = jsonObject.has("large_tex") && jsonObject.get("large_tex").getAsBoolean();
 
-            return new AnimatableTicTool3DUnbakedModel(parts, transforms, largeTex);
+            return new AnimatableTicTool3DUnbakedModel(parts, skeleton, transforms, largeTex);
         } catch (IllegalStateException | JsonSyntaxException | ClassCastException | NullPointerException e) {
             throw new JsonParseException("AnimTicTool3DModel Loader found invalid model data.", e);
         }

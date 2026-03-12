@@ -52,11 +52,13 @@ public class AnimatableTicTool3DRenderer extends BlockEntityWithoutLevelRenderer
 
         var rgbaColors = model.getToolPartRgbaColors();
 
-        var grouped = model.getParts().stream().collect(Collectors.groupingBy(AnimatableTicTool3DModelData.BakedPart::renderType));
-        grouped.forEach((rtGetter, parts) -> {
+        // todo: 引入位姿调整
+        var allParts = model.getSkeleton().enumBones().flatMap(b -> b.parts().stream());
+        var grouped = allParts.collect(Collectors.groupingBy(AnimatableTicTool3DModelData.BakedPart::renderType));
+        grouped.forEach((rtGetter, partList) -> {
             var renderType = rtGetter.get();
             var buffer = multiBufferSource.getBuffer(renderType);
-            parts.forEach(p -> {
+            partList.forEach(p -> {
                 var rgba = new Vector4f(1);
                 if (p.renderType() == TmtRenderTypeGetters.TINKER_MAPPING.get()) {
                     var matNo = p.toolPart();

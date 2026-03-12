@@ -21,11 +21,13 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Stream;
 
 @RequiredArgsConstructor
 public class AnimatableTicTool3DOriginalBakedModel implements BakedModel {
 
-    @Getter private final List<AnimatableTicTool3DModelData.BakedPart> parts;
+    @Getter private final AnimatableTicTool3DModelData.BakedBone skeleton;
     @Getter private final ItemTransforms transforms;
     @Getter private final boolean largeTex;
 
@@ -35,7 +37,11 @@ public class AnimatableTicTool3DOriginalBakedModel implements BakedModel {
     @Override
     public @NotNull List<BakedQuad> getQuads(@Nullable BlockState blockState, @Nullable Direction direction, @NotNull RandomSource randomSource) {
         //noinspection deprecation
-        return parts.stream().flatMap(p -> p.model().getQuads(blockState, direction, randomSource).stream()).toList();
+        return skeleton.enumBones().flatMap(
+                b -> b.parts().stream()
+        ).flatMap(
+                p -> p.model().getQuads(blockState, direction, randomSource).stream()
+        ).toList();
     }
 
     @Override public boolean useAmbientOcclusion() {
