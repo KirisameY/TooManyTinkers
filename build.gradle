@@ -156,6 +156,8 @@ dependencies {
     testCompileOnly("org.projectlombok:lombok:1.18.38")
     testAnnotationProcessor("org.projectlombok:lombok:1.18.38")
 
+    implementation("io.vavr:vavr:1.0.1")
+
     // mixin
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
 

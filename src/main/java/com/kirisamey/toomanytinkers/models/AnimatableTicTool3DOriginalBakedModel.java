@@ -37,8 +37,8 @@ public class AnimatableTicTool3DOriginalBakedModel implements BakedModel {
     @Override
     public @NotNull List<BakedQuad> getQuads(@Nullable BlockState blockState, @Nullable Direction direction, @NotNull RandomSource randomSource) {
         //noinspection deprecation
-        return skeleton.enumBones().flatMap(
-                b -> b.parts().stream()
+        return skeleton.enumBones().toJavaStream().flatMap(
+                b -> b.parts().toJavaStream()
         ).flatMap(
                 p -> p.model().getQuads(blockState, direction, randomSource).stream()
         ).toList();
