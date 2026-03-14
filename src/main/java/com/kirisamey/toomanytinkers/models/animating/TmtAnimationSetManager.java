@@ -1,0 +1,106 @@
+package com.kirisamey.toomanytinkers.models.animating;
+
+import com.google.gson.*;
+import com.ibm.icu.impl.Pair;
+import com.kirisamey.toomanytinkers.TooManyTinkers;
+import io.vavr.Tuple;
+import io.vavr.collection.HashMap;
+import io.vavr.collection.Map;
+import io.vavr.collection.Stream;
+import io.vavr.collection.Vector;
+import lombok.Getter;
+import lombok.extern.log4j.Log4j2;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
+import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraftforge.event.AddReloadListenerEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
+import org.joml.Vector3f;
+import org.jspecify.annotations.NonNull;
+
+import java.util.Objects;
+import java.util.Optional;
+
+@Log4j2
+public class TmtAnimationSetManager extends SimpleJsonResourceReloadListener {
+    public TmtAnimationSetManager(Gson gson) {
+        super(gson, "tmt_animations");
+    }
+
+    public static final TmtAnimationSetManager DATA_MANAGER = new TmtAnimationSetManager(new Gson());
+
+    @Getter private Map<ResourceLocation, TmtAnimationSet> AnimSetMap = HashMap.empty();
+
+    @Override
+    protected void apply(
+            java.util.@NonNull Map<ResourceLocation, JsonElement> objectMap,
+            @NonNull ResourceManager resourceManager,
+            @NonNull ProfilerFiller profiler) {
+        AnimSetMap = Stream.ofAll(objectMap.entrySet()).map(e0 -> {
+            var location = e0.getKey();
+            var element = e0.getValue();
+
+            if (!element.isJsonObject()) return null;
+            var obj = element.getAsJsonObject();
+
+            try {
+                var animObj = obj.getAsJsonObject("animations");
+                var animations = Stream.ofAll(animObj.entrySet()).toMap(entry -> {
+                    var animId = entry.getKey();
+                    var animContent = entry.getValue().getAsJsonObject();
+
+                    var loopJse = animContent.has("loop") ? animContent.get("loop") : null;
+                    TmtAnimation.LoopMode loopMode = TmtAnimation.LoopMode.No;
+                    if (loopJse != null) {
+                        if (loopJse.getAsString().equals("hold_on_last_frame"))
+                            loopMode = TmtAnimation.LoopMode.HoldOnLast;
+                        else if (loopJse.getAsBoolean())
+                            loopMode = TmtAnimation.LoopMode.Loop;
+                    }
+
+                    var length = animContent.has("animation_length") ? animContent.get("animation_length").getAsFloat() : 0;
+
+                    var bonesJso = Optional.ofNullable(animContent.getAsJsonObject("bones"));
+                    var bones = bonesJso.map(o -> Stream.ofAll(o.entrySet()).toMap(e -> {
+                        var boneName = e.getKey();
+                        var boneTimeLine = e.getValue().getAsJsonObject();
+                        var bonePosTl = Optional.ofNullable(boneTimeLine.getAsJsonObject("position"));
+                        var boneRotTl = Optional.ofNullable(boneTimeLine.getAsJsonObject("rotation"));
+                        var boneSclTl = Optional.ofNullable(boneTimeLine.getAsJsonObject("scale"));
+                        return Tuple.of(boneName, new TmtAnimationBoneEntry(getVec3fTl(bonePosTl), getVec3fTl(boneRotTl), getVec3fTl(boneSclTl)));
+                    })).orElse(HashMap.empty());
+
+                    return Tuple.of(animId, new TmtAnimation(loopMode, length, bones));
+                });
+
+                return Tuple.of(location, new TmtAnimationSet(animations));
+            } catch (IllegalStateException | JsonSyntaxException | ClassCastException | NullPointerException |
+                     IndexOutOfBoundsException e) {
+                log.error("Tmt Animation Set Loader found invalid animation data.", e);
+            }
+
+            return null;
+        }).filter(Objects::nonNull).toMap(t -> t);
+    }
+
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
+    private static Vector<Pair<Float, Vector3f>> getVec3fTl(Optional<JsonObject> vec3Tl) {
+        return vec3Tl.map(pTl -> Vector.ofAll(pTl.entrySet().stream()).map(e0 -> {
+            var time = Float.valueOf(e0.getKey());
+            var vec = e0.getValue().getAsJsonArray();
+            var vec3 = new Vector3f(vec.get(0).getAsFloat(), vec.get(1).getAsFloat(), vec.get(2).getAsFloat());
+            return Pair.of(time, vec3);
+        })).orElse(Vector.empty());
+    }
+
+
+    @Mod.EventBusSubscriber(modid = TooManyTinkers.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+    public static class Registerer {
+        @SubscribeEvent
+        public static void onAddReloadListener(AddReloadListenerEvent event) {
+            event.addListener(DATA_MANAGER);
+        }
+    }
+}

@@ -1,0 +1,52 @@
+package com.kirisamey.toomanytinkers.models.animating;
+
+import com.ibm.icu.impl.Pair;
+import io.vavr.Tuple;
+import io.vavr.Tuple3;
+import io.vavr.collection.Vector;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.function.TriFunction;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
+
+@SuppressWarnings("ClassCanBeRecord")
+@RequiredArgsConstructor
+public class TmtAnimationBoneEntry {
+    @Getter private final Vector<Pair<Float, Vector3f>> position;
+    @Getter private final Vector<Pair<Float, Vector3f>> rotate;
+    @Getter private final Vector<Pair<Float, Vector3f>> scaleRad;
+
+    public Tuple3<Vector3f, Vector3f, Vector3f> getInterpolatedPRSr(float time) {
+        time /= 20f;
+        TriFunction<Vector3f, Vector3f, Float, Vector3f> lerp0 = (v1, v2, t) ->
+                v1.lerp(v2, t, new Vector3f());
+        var pos = interpolateVec3List(position, time, lerp0);
+        var scl = interpolateVec3List(scaleRad, time, lerp0);
+        var rtR = interpolateVec3List(rotate, time, (v1, v2, t) -> {
+            var q1 = new Quaternionf().rotationXYZ(v1.x, v1.y, v1.z);
+            var q2 = new Quaternionf().rotationXYZ(v2.x, v2.y, v2.z);
+            return q1.slerp(q2, t).getEulerAnglesXYZ(new Vector3f());
+        });
+        return Tuple.of(pos, rtR, scl);
+    }
+
+    private static Vector3f interpolateVec3List(
+            Vector<Pair<Float, Vector3f>> list, float time,
+            TriFunction<Vector3f, Vector3f, Float, Vector3f> lerp) {
+        Vector3f last = list.get(0).second;
+        float lastTime = 0;
+        for (Pair<Float, Vector3f> pair : list) {
+            var t = pair.first;
+            var v = pair.second;
+            if (t < time) {
+                last = v;
+                lastTime = t;
+                continue;
+            }
+            var fixT = (time - lastTime) / t;
+            return lerp.apply(last, v, fixT);
+        }
+        return last;
+    }
+}
