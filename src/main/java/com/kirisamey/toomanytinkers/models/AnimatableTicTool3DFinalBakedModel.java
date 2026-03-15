@@ -2,6 +2,7 @@ package com.kirisamey.toomanytinkers.models;
 
 import com.ibm.icu.impl.Pair;
 import com.kirisamey.toomanytinkers.TooManyTinkers;
+import com.kirisamey.toomanytinkers.models.pose.IAnimatableTicTool3DBoneController;
 import com.kirisamey.toomanytinkers.rendering.materialmap.events.MaterialAnimFrameUpdatedEvent;
 import com.kirisamey.toomanytinkers.rendering.materialmap.events.MaterialMappingRestartEvent;
 import com.kirisamey.toomanytinkers.utils.TmtColorUtils;
@@ -34,9 +35,14 @@ import java.util.stream.Stream;
 
 public class AnimatableTicTool3DFinalBakedModel implements BakedModel {
 
-    public AnimatableTicTool3DFinalBakedModel(AnimatableTicTool3DModelData.BakedBone skeleton, Vector4f[] partArgbColors,
-                                              List<Pair<Integer, Integer>> partAnimPairs, ItemTransforms transforms, boolean largeTex) {
+    public AnimatableTicTool3DFinalBakedModel(
+            AnimatableTicTool3DModelData.BakedBone skeleton,
+            IAnimatableTicTool3DBoneController controller,
+            Vector4f[] partArgbColors, List<Pair<Integer, Integer>> partAnimPairs,
+            ItemTransforms transforms, boolean largeTex) {
+
         this.skeleton = skeleton;
+        this.controller = controller;
         this.toolPartRgbaColors = partArgbColors;
         this.transforms = transforms;
 
@@ -53,6 +59,7 @@ public class AnimatableTicTool3DFinalBakedModel implements BakedModel {
     private static final ArrayList<ArrayList<Pair<AnimatableTicTool3DFinalBakedModel, Integer>>> ANIM_MAT_COLOR_UPDATE_LIST = new ArrayList<>();
 
     @Getter private final AnimatableTicTool3DModelData.BakedBone skeleton;
+    @Getter private final IAnimatableTicTool3DBoneController controller;
     @Getter private final Vector4f[] toolPartRgbaColors;
     @Getter private final ItemTransforms transforms;
     @Getter private final boolean largeTex;

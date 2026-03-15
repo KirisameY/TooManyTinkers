@@ -69,7 +69,15 @@ public class TmtAnimationSetManager extends SimpleJsonResourceReloadListener {
                         var bonePosTl = Optional.ofNullable(boneTimeLine.getAsJsonObject("position"));
                         var boneRotTl = Optional.ofNullable(boneTimeLine.getAsJsonObject("rotation"));
                         var boneSclTl = Optional.ofNullable(boneTimeLine.getAsJsonObject("scale"));
-                        return Tuple.of(boneName, new TmtAnimationBoneEntry(getVec3fTl(bonePosTl), getVec3fTl(boneRotTl), getVec3fTl(boneSclTl)));
+                        return Tuple.of(boneName, new TmtAnimationBoneEntry(
+                                getVec3fTl(bonePosTl).map(p -> Pair.of(
+                                        p.first, p.second.mul(1 / 16f)
+                                )),
+                                getVec3fTl(boneRotTl).map(p -> Pair.of(
+                                        p.first, p.second.mul((float) Math.PI / 180f)
+                                )),
+                                getVec3fTl(boneSclTl)
+                        ));
                     })).orElse(HashMap.empty());
 
                     return Tuple.of(animId, new TmtAnimation(loopMode, length, bones));

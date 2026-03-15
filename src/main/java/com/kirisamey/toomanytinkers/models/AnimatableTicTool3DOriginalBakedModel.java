@@ -1,5 +1,6 @@
 package com.kirisamey.toomanytinkers.models;
 
+import com.kirisamey.toomanytinkers.models.pose.IAnimatableTicTool3DBoneController;
 import com.mojang.blaze3d.vertex.PoseStack;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ import java.util.stream.Stream;
 public class AnimatableTicTool3DOriginalBakedModel implements BakedModel {
 
     @Getter private final AnimatableTicTool3DModelData.BakedBone skeleton;
+    @Getter private final IAnimatableTicTool3DBoneController controller;
     @Getter private final ItemTransforms transforms;
     @Getter private final boolean largeTex;
 

@@ -1,6 +1,8 @@
 package com.kirisamey.toomanytinkers;
 
 import com.kirisamey.toomanytinkers.configs.TmtConfig;
+import com.kirisamey.toomanytinkers.models.animating.TmtAnimation;
+import com.kirisamey.toomanytinkers.models.pose.TmtAnimationControllers;
 import com.kirisamey.toomanytinkers.rendering.TmtRenderTypeGetters;
 import com.mojang.logging.LogUtils;
 import net.minecraftforge.common.MinecraftForge;
@@ -33,6 +35,7 @@ public class TooManyTinkers {
         context.registerConfig(ModConfig.Type.COMMON, TmtConfig.SPEC);
 
         TmtRenderTypeGetters.init(modEventBus);
+        TmtAnimationControllers.init(modEventBus);
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {

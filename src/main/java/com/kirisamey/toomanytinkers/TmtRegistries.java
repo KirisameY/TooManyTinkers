@@ -1,5 +1,8 @@
 package com.kirisamey.toomanytinkers;
 
+import com.kirisamey.toomanytinkers.models.pose.IAnimatableTicTool3DBoneController;
+import com.kirisamey.toomanytinkers.models.pose.ITmtAnimationController;
+import com.kirisamey.toomanytinkers.models.pose.TmtAnimationBoneController;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
@@ -17,6 +20,11 @@ public class TmtRegistries {
     public static final ResourceKey<Registry<Supplier<RenderType>>> RENDER_TYPE_GETTERS_REGKEY = key("render_type_getters");
     public static Supplier<IForgeRegistry<Supplier<RenderType>>> RENDER_TYPE_GETTERS;
 
+    public static final ResourceKey<Registry<IAnimatableTicTool3DBoneController>> BONE_CONTROLLERS_REGKEY = key("bone_controllers");
+    public static Supplier<IForgeRegistry<IAnimatableTicTool3DBoneController>> BONE_CONTROLLERS;
+
+    public static final ResourceKey<Registry<ITmtAnimationController>> ANIM_CONTROLLERS_REGKEY = key("anim_controllers");
+    public static Supplier<IForgeRegistry<ITmtAnimationController>> ANIM_CONTROLLERS;
 
     @SuppressWarnings("SameParameterValue")
     private static <T> ResourceKey<Registry<T>> key(String name) {
@@ -25,10 +33,16 @@ public class TmtRegistries {
 
     @SubscribeEvent
     public static void onNewRegistry(NewRegistryEvent event) {
-        RegistryBuilder<Supplier<RenderType>> builder = new RegistryBuilder<Supplier<RenderType>>()
-                .setName(RENDER_TYPE_GETTERS_REGKEY.location())
+        RENDER_TYPE_GETTERS = addRegistry(event, RENDER_TYPE_GETTERS_REGKEY);
+        BONE_CONTROLLERS = addRegistry(event, BONE_CONTROLLERS_REGKEY);
+        ANIM_CONTROLLERS = addRegistry(event, ANIM_CONTROLLERS_REGKEY);
+    }
+
+    private static <T> Supplier<IForgeRegistry<T>> addRegistry(NewRegistryEvent event, ResourceKey<Registry<T>> regkey) {
+        RegistryBuilder<T> boneControllersBuilder = new RegistryBuilder<T>()
+                .setName(regkey.location())
                 .setMaxID(Integer.MAX_VALUE - 1);
         //.allowModification();
-        RENDER_TYPE_GETTERS = event.create(builder);
+        return event.create(boneControllersBuilder);
     }
 }

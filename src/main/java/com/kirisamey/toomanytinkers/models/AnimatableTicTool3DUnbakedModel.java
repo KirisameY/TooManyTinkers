@@ -1,6 +1,9 @@
 package com.kirisamey.toomanytinkers.models;
 
 import com.ibm.icu.impl.Pair;
+import com.kirisamey.toomanytinkers.TmtRegistries;
+import com.kirisamey.toomanytinkers.models.pose.EmptyTmtBoneController;
+import com.kirisamey.toomanytinkers.models.pose.IAnimatableTicTool3DBoneController;
 import io.vavr.Tuple;
 import io.vavr.Tuple2;
 import io.vavr.Tuple3;
@@ -24,6 +27,7 @@ public class AnimatableTicTool3DUnbakedModel implements IUnbakedGeometry<Animata
 
     private final Vector<AnimatableTicTool3DModelData.UnbakedPart> parts;
     @Getter private final AnimatableTicTool3DModelData.UnbakedBone skeleton;
+    @Getter private final IAnimatableTicTool3DBoneController controller;
     @Getter private final ItemTransforms transforms;
     @Getter private final boolean largeTex;
 
@@ -85,7 +89,7 @@ public class AnimatableTicTool3DUnbakedModel implements IUnbakedGeometry<Animata
 
         var bakedSkeleton = finalList.get(0);
 
-        return new AnimatableTicTool3DOriginalBakedModel(bakedSkeleton, transforms, largeTex);
+        return new AnimatableTicTool3DOriginalBakedModel(bakedSkeleton, controller, transforms, largeTex);
     }
 
     @Override public Set<String> getConfigurableComponentNames() {

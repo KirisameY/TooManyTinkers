@@ -4,6 +4,7 @@ import com.google.gson.*;
 import com.ibm.icu.impl.Pair;
 import com.kirisamey.toomanytinkers.TmtRegistries;
 import com.kirisamey.toomanytinkers.TooManyTinkers;
+import com.kirisamey.toomanytinkers.models.pose.TmtAnimationControllers;
 import com.kirisamey.toomanytinkers.rendering.TmtRenderTypeGetters;
 import io.vavr.Tuple;
 import io.vavr.Tuple2;
@@ -21,9 +22,7 @@ import net.minecraftforge.fml.common.Mod;
 import org.joml.Vector3f;
 
 import java.util.*;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 @Log4j2
 public class AnimatableTicTool3DModelLoader implements IGeometryLoader<AnimatableTicTool3DUnbakedModel> {
@@ -121,6 +120,11 @@ public class AnimatableTicTool3DModelLoader implements IGeometryLoader<Animatabl
                     "root", parts.map(p -> Pair.of(p.id(), new Vector3f())), Vector.of()
             ));
 
+            var controllerId = jsonObject.has("controller") ?
+                    ResourceLocation.parse(jsonObject.get("controller").getAsString()) :
+                    TmtAnimationControllers.EMPTY_BONE_CONTROLLER.getId();
+            var controller = Objects.requireNonNull(TmtRegistries.BONE_CONTROLLERS.get().getValue(controllerId));
+
             var transforms = ItemTransforms.NO_TRANSFORMS;
             if (jsonObject.has("display")) {
                 transforms = deserializationContext.deserialize(jsonObject.get("display"), ItemTransforms.class);
@@ -128,7 +132,7 @@ public class AnimatableTicTool3DModelLoader implements IGeometryLoader<Animatabl
 
             var largeTex = jsonObject.has("large_tex") && jsonObject.get("large_tex").getAsBoolean();
 
-            return new AnimatableTicTool3DUnbakedModel(parts, skeleton, transforms, largeTex);
+            return new AnimatableTicTool3DUnbakedModel(parts, skeleton, controller, transforms, largeTex);
         } catch (IllegalStateException | JsonSyntaxException | ClassCastException | NullPointerException |
                  IndexOutOfBoundsException e) {
             throw new JsonParseException("AnimTicTool3DModel Loader found invalid model data.", e);

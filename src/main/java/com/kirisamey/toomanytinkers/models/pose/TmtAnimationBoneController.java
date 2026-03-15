@@ -1,0 +1,93 @@
+package com.kirisamey.toomanytinkers.models.pose;
+
+import com.kirisamey.toomanytinkers.TmtRegistries;
+import com.kirisamey.toomanytinkers.models.AnimatableTicTool3DModelData;
+import com.kirisamey.toomanytinkers.models.animating.TmtAnimationSet;
+import com.kirisamey.toomanytinkers.models.animating.TmtAnimationSetManager;
+import io.vavr.Tuple;
+import io.vavr.Tuple2;
+import io.vavr.Tuple3;
+import io.vavr.collection.HashMap;
+import io.vavr.collection.Vector;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
+import org.joml.Matrix4f;
+
+import java.util.ArrayList;
+import java.util.Objects;
+import java.util.Stack;
+
+@SuppressWarnings("ClassCanBeRecord")
+@RequiredArgsConstructor
+public class TmtAnimationBoneController implements IAnimatableTicTool3DBoneController {
+
+    public TmtAnimationBoneController(ResourceLocation animSetId, ResourceLocation controllerId) {
+        this(
+                TmtAnimationSetManager.DATA_MANAGER.getAnimSetMap().getOrElse(animSetId, new TmtAnimationSet(HashMap.empty())),
+                Objects.requireNonNull(TmtRegistries.ANIM_CONTROLLERS.get().getValue(controllerId))
+        );
+    }
+
+    @Getter private final TmtAnimationSet animationSet;
+    @Getter private final ITmtAnimationController controller;
+
+    @Override
+    public AnimatableTicTool3DModelData.PosedBone pose(ItemStack itemStack, AnimatableTicTool3DModelData.BakedBone root) {
+        //noinspection DuplicatedCode
+        Stack<Tuple2<
+                ArrayList<AnimatableTicTool3DModelData.PosedBone>,
+                AnimatableTicTool3DModelData.BakedBone
+                >> pushStack = new Stack<>();
+        Stack<Tuple3<
+                ArrayList<AnimatableTicTool3DModelData.PosedBone>,
+                AnimatableTicTool3DModelData.BakedBone,
+                ArrayList<AnimatableTicTool3DModelData.PosedBone>
+                >> poseStack = new Stack<>();
+
+        var finalList = new ArrayList<AnimatableTicTool3DModelData.PosedBone>();
+        pushStack.push(Tuple.of(finalList, root));
+
+        while (!pushStack.empty()) {
+            var t = pushStack.pop();
+            var parentList = t._1;
+            var bone = t._2;
+            var selfList = new ArrayList<AnimatableTicTool3DModelData.PosedBone>();
+            poseStack.push(Tuple.of(parentList, bone, selfList));
+            bone.bones().forEach(b -> {
+                pushStack.push(Tuple.of(selfList, b));
+            });
+        }
+
+        var animInfo = controller.getPose(itemStack);
+        var animId = animInfo._1;
+        var animTime = animInfo._2;
+
+        while (!poseStack.empty()) {
+            var t = poseStack.pop();
+            var parentList = t._1;
+            var bone = t._2;
+            var selfList = t._3;
+
+            var anim = animationSet.animations().get(animId);
+            var transform = anim.flatMap(a -> {
+                return a.getBones().get(bone.id()).map(b -> {
+                    var tRrS = b.getInterpolatedTRrS(animTime);
+                    var tl = tRrS._1;
+                    var rr = tRrS._2;
+                    var s = tRrS._3;
+                    return new Matrix4f().translate(tl)
+                            .rotationXYZ(rr.x, rr.y, rr.z)
+                            .scale(s);
+                });
+            }).getOrElse(new Matrix4f());
+
+            var newBone = new AnimatableTicTool3DModelData.PosedBone(bone.id(), bone.parts(), Vector.ofAll(selfList), transform);
+            parentList.add(newBone);
+        }
+
+        return finalList.get(0);
+    }
+
+}

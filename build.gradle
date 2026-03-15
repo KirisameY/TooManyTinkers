@@ -130,6 +130,8 @@ repositories {
     }
 }
 
+jarJar.enable()
+
 dependencies {
     // Specify the version of Minecraft to use.
     // Any artifact can be supplied so long as it has a "userdev" classifier artifact and is a compatible patcher artifact.
@@ -156,7 +158,10 @@ dependencies {
     testCompileOnly("org.projectlombok:lombok:1.18.38")
     testAnnotationProcessor("org.projectlombok:lombok:1.18.38")
 
-    implementation("io.vavr:vavr:1.0.1")
+    implementation jarJar("io.vavr:vavr:1.0.1") {
+        jarJar.ranged(it, "[1.0.1,)")
+    }
+    jarJar(group: 'io.vavr', name: 'vavr-match', version: '[1.0.0,)')
 
     // mixin
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
@@ -196,11 +201,11 @@ mixin {
 // See https://docs.gradle.org/current/dsl/org.gradle.language.jvm.tasks.ProcessResources.html
 tasks.named('processResources', ProcessResources).configure {
     var replaceProperties = [
-            minecraft_version: minecraft_version, minecraft_version_range: minecraft_version_range,
-            forge_version: forge_version, forge_version_range: forge_version_range,
+            minecraft_version   : minecraft_version, minecraft_version_range: minecraft_version_range,
+            forge_version       : forge_version, forge_version_range: forge_version_range,
             loader_version_range: loader_version_range,
-            mod_id: mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
-            mod_authors: mod_authors, mod_description: mod_description,
+            mod_id              : mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
+            mod_authors         : mod_authors, mod_description: mod_description,
     ]
     inputs.properties replaceProperties
 
@@ -235,8 +240,10 @@ tasks.named('jar', Jar).configure {
 // Example configuration to allow publishing using the maven-publish plugin
 publishing {
     publications {
-        register('mavenJava', MavenPublication) {
-            artifact jar
+        mavenJava(MavenPublication) {
+            artifact tasks.jarJar
+
+            //artifact jar
         }
     }
     repositories {
