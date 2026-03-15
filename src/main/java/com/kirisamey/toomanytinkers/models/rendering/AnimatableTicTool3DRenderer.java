@@ -5,6 +5,7 @@ import com.kirisamey.toomanytinkers.models.AnimatableTicTool3DModelData;
 import com.kirisamey.toomanytinkers.rendering.TmtRenderTypeGetters;
 import com.kirisamey.toomanytinkers.rendering.TmtRenderTypes;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Transformation;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.model.geom.EntityModelSet;
 import net.minecraft.client.renderer.BlockEntityWithoutLevelRenderer;
@@ -52,15 +53,17 @@ public class AnimatableTicTool3DRenderer extends BlockEntityWithoutLevelRenderer
 
         var rgbaColors = model.getToolPartRgbaColors();
 
-        // todo: 引入位姿调整
-        var allParts = model.getSkeleton().enumBones().flatMap(AnimatableTicTool3DModelData.BakedBone::parts);
-        var grouped = allParts.collect(Collectors.groupingBy(AnimatableTicTool3DModelData.BakedPart::renderType));
+        var posedSkeleton = model.getController().pose(itemStack, model.getSkeleton());
+        var allParts = posedSkeleton.enumParts();
+        var grouped = allParts.groupBy(AnimatableTicTool3DModelData.PosedPart::renderType);
         grouped.forEach((rtGetter, partList) -> {
             var renderType = rtGetter.get();
             var buffer = multiBufferSource.getBuffer(renderType);
             var tinkerMapping = TmtRenderTypeGetters.TINKER_MAPPING.get();
 
             partList.forEach(p -> {
+                poseStack.pushTransformation(new Transformation(p.transform()));
+
                 var rgba = new Vector4f(1);
                 if (p.renderType() == tinkerMapping) {
                     var matNo = p.toolPart();
@@ -70,6 +73,8 @@ public class AnimatableTicTool3DRenderer extends BlockEntityWithoutLevelRenderer
                 for (var quad : quads) {
                     buffer.putBulkData(poseStack.last(), quad, rgba.x, rgba.y, rgba.z, rgba.w, packedLight, packedOverlay, false);
                 }
+
+                poseStack.popPose();
             });
         });
     }
