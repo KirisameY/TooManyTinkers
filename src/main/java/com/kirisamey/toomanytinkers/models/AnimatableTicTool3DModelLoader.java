@@ -44,9 +44,9 @@ public class AnimatableTicTool3DModelLoader implements IGeometryLoader<Animatabl
                 if (info.has("origin")) {
                     var vecArray = info.getAsJsonArray("origin");
                     origin = new Vector3f(
-                            vecArray.get(0).getAsFloat(),
-                            vecArray.get(1).getAsFloat(),
-                            vecArray.get(2).getAsFloat()
+                            vecArray.get(0).getAsFloat() / 16f,
+                            vecArray.get(1).getAsFloat() / 16f,
+                            vecArray.get(2).getAsFloat() / 16f
                     );
                 }
 
@@ -54,7 +54,7 @@ public class AnimatableTicTool3DModelLoader implements IGeometryLoader<Animatabl
             }));
 
 
-            var boneJson = Optional.ofNullable(jsonObject.has("bone") ? null : jsonObject.getAsJsonObject("bone"));
+            var boneJson = Optional.ofNullable(jsonObject.getAsJsonObject("bone"));
 
             var skeleton = boneJson.map(o -> {
                 Stack<Tuple3<
@@ -100,9 +100,9 @@ public class AnimatableTicTool3DModelLoader implements IGeometryLoader<Animatabl
                                     var n = a.get(0).getAsString();
                                     var of = a.get(1).getAsJsonArray();
                                     var off = new Vector3f(
-                                            of.get(0).getAsFloat(),
-                                            of.get(1).getAsFloat(),
-                                            of.get(2).getAsFloat()
+                                            of.get(0).getAsFloat() / 16f,
+                                            of.get(1).getAsFloat() / 16f,
+                                            of.get(2).getAsFloat() / 16f
                                     );
                                     return Pair.of(n, off);
                                 }
