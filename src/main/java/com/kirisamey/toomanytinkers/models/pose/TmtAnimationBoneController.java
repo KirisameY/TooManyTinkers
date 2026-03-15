@@ -82,7 +82,7 @@ public class TmtAnimationBoneController implements IAnimatableTicTool3DBoneContr
                     var rr = tRrS._2;
                     var s = tRrS._3;
                     return new Matrix4f().translate(tl)
-                            .rotationXYZ(rr.x, rr.y, rr.z)
+                            .rotateXYZ(rr)
                             .scale(s);
                 });
             }).getOrElse(new Matrix4f());
