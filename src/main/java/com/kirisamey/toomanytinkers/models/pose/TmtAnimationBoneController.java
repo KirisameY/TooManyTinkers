@@ -34,7 +34,7 @@ public class TmtAnimationBoneController implements IAnimatableTicTool3DBoneContr
     @Getter private final ITmtAnimationController controller;
 
     @Override
-    public AnimatableTicTool3DModelData.PosedBone pose(ItemStack itemStack, AnimatableTicTool3DModelData.BakedBone root) {
+    public AnimatableTicTool3DModelData.PosedBone pose(ItemStack itemStack, AnimatableTicTool3DModelData.BakedBone root, Matrix4f outTransform) {
         //noinspection DuplicatedCode
         Stack<Tuple2<
                 ArrayList<AnimatableTicTool3DModelData.PosedBone>,
@@ -82,6 +82,10 @@ public class TmtAnimationBoneController implements IAnimatableTicTool3DBoneContr
                             .scale(s);
                 });
             }).getOrElse(new Matrix4f());
+
+            if (poseStack.empty()) {
+                transform.mulLocal(outTransform);
+            }
 
             var newBone = new AnimatableTicTool3DModelData.PosedBone(bone.id(), bone.parts(), Vector.ofAll(selfList), transform);
             parentList.add(newBone);

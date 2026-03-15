@@ -19,7 +19,7 @@ public class EmptyTmtBoneController implements IAnimatableTicTool3DBoneControlle
     public static final EmptyTmtBoneController INSTANCE = new EmptyTmtBoneController();
 
     @Override
-    public AnimatableTicTool3DModelData.PosedBone pose(ItemStack itemStack, AnimatableTicTool3DModelData.BakedBone root) {
+    public AnimatableTicTool3DModelData.PosedBone pose(ItemStack itemStack, AnimatableTicTool3DModelData.BakedBone root, Matrix4f transform) {
         //noinspection DuplicatedCode
         Stack<Tuple2<
                 ArrayList<AnimatableTicTool3DModelData.PosedBone>,
@@ -51,7 +51,9 @@ public class EmptyTmtBoneController implements IAnimatableTicTool3DBoneControlle
             var bone = t._2;
             var selfList = t._3;
 
-            var newBone = new AnimatableTicTool3DModelData.PosedBone(bone.id(), bone.parts(), Vector.ofAll(selfList), new Matrix4f());
+            var trans = poseStack.empty() ? transform : new Matrix4f();
+
+            var newBone = new AnimatableTicTool3DModelData.PosedBone(bone.id(), bone.parts(), Vector.ofAll(selfList), trans);
             parentList.add(newBone);
         }
 
