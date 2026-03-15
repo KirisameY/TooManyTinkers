@@ -19,22 +19,26 @@ import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Stack;
 
-@SuppressWarnings("ClassCanBeRecord")
 @RequiredArgsConstructor
 public class TmtAnimationBoneController implements IAnimatableTicTool3DBoneController {
 
     public TmtAnimationBoneController(ResourceLocation animSetId, ResourceLocation controllerId) {
         this(
-                TmtAnimationSetManager.DATA_MANAGER.getAnimSetMap().getOrElse(animSetId, new TmtAnimationSet(HashMap.empty())),
+                animSetId,
                 Objects.requireNonNull(TmtRegistries.ANIM_CONTROLLERS.get().getValue(controllerId))
         );
     }
 
-    @Getter private final TmtAnimationSet animationSet;
+    @Getter private final ResourceLocation animationSetId;
+    @Getter private TmtAnimationSet animationSet;
     @Getter private final ITmtAnimationController controller;
 
     @Override
     public AnimatableTicTool3DModelData.PosedBone pose(ItemStack itemStack, AnimatableTicTool3DModelData.BakedBone root, Matrix4f outTransform) {
+        if(animationSet == null){
+            animationSet = TmtAnimationSetManager.DATA_MANAGER.getAnimSetMap().getOrElse(animationSetId, new TmtAnimationSet(HashMap.empty()));
+        }
+
         //noinspection DuplicatedCode
         Stack<Tuple2<
                 ArrayList<AnimatableTicTool3DModelData.PosedBone>,

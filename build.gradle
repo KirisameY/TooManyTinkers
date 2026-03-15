@@ -162,6 +162,8 @@ dependencies {
         jarJar.ranged(it, "[1.0.1,)")
     }
     jarJar(group: 'io.vavr', name: 'vavr-match', version: '[1.0.0,)')
+    minecraftLibrary "io.vavr:vavr:1.0.1"
+    minecraftLibrary "io.vavr:vavr-match:1.0.0"
 
     // mixin
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'

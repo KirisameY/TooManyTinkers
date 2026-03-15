@@ -14,12 +14,14 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.server.packs.resources.SimpleJsonResourceReloadListener;
 import net.minecraft.util.profiling.ProfilerFiller;
+import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
 import net.minecraftforge.event.AddReloadListenerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.joml.Vector3f;
 import org.jspecify.annotations.NonNull;
 
+import javax.swing.text.html.Option;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -66,9 +68,9 @@ public class TmtAnimationSetManager extends SimpleJsonResourceReloadListener {
                     var bones = bonesJso.map(o -> Stream.ofAll(o.entrySet()).toMap(e -> {
                         var boneName = e.getKey();
                         var boneTimeLine = e.getValue().getAsJsonObject();
-                        var bonePosTl = Optional.ofNullable(boneTimeLine.getAsJsonObject("position"));
-                        var boneRotTl = Optional.ofNullable(boneTimeLine.getAsJsonObject("rotation"));
-                        var boneSclTl = Optional.ofNullable(boneTimeLine.getAsJsonObject("scale"));
+                        var bonePosTl = getTimeLine(boneTimeLine, "position"); //Optional.ofNullable(boneTimeLine.getAsJsonObject("position"));
+                        var boneRotTl = getTimeLine(boneTimeLine, "rotation");//Optional.ofNullable(boneTimeLine.getAsJsonObject("rotation"));
+                        var boneSclTl = getTimeLine(boneTimeLine, "scale");//Optional.ofNullable(boneTimeLine.getAsJsonObject("scale"));
                         return Tuple.of(boneName, new TmtAnimationBoneEntry(
                                 getVec3fTl(bonePosTl).map(p -> Pair.of(
                                         p.first, p.second.mul(1 / 16f)
@@ -93,6 +95,17 @@ public class TmtAnimationSetManager extends SimpleJsonResourceReloadListener {
         }).filter(Objects::nonNull).toMap(t -> t);
     }
 
+    private static Optional<JsonObject> getTimeLine(JsonObject in, String name) {
+        var e = in.get(name);
+        if (e == null) return Optional.empty();
+        if (e.isJsonArray()) {
+            var result = new JsonObject();
+            result.add("0.0", e);
+            return Optional.of(result);
+        }
+        return Optional.of(e.getAsJsonObject());
+    }
+
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     private static Vector<Pair<Float, Vector3f>> getVec3fTl(Optional<JsonObject> vec3Tl) {
         return vec3Tl.map(pTl -> Vector.ofAll(pTl.entrySet().stream()).map(e0 -> {
@@ -104,11 +117,11 @@ public class TmtAnimationSetManager extends SimpleJsonResourceReloadListener {
     }
 
 
-    @Mod.EventBusSubscriber(modid = TooManyTinkers.MODID, bus = Mod.EventBusSubscriber.Bus.FORGE)
+    @Mod.EventBusSubscriber(modid = TooManyTinkers.MODID, bus = Mod.EventBusSubscriber.Bus.MOD)
     public static class Registerer {
         @SubscribeEvent
-        public static void onAddReloadListener(AddReloadListenerEvent event) {
-            event.addListener(DATA_MANAGER);
+        public static void onAddReloadListener(RegisterClientReloadListenersEvent event) {
+            event.registerReloadListener(DATA_MANAGER);
         }
     }
 }
