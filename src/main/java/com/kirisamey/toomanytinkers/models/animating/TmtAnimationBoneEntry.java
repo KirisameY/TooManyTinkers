@@ -23,11 +23,12 @@ public class TmtAnimationBoneEntry {
                 v1.lerp(v2, t, new Vector3f());
         var pos = interpolateVec3List(position, time, lerp0, false);
         var scl = interpolateVec3List(scale, time, lerp0, true);
-        var rtR = interpolateVec3List(rotateRad, time, (v1, v2, t) -> {
-            var q1 = new Quaternionf().rotationXYZ(v1.x, v1.y, v1.z);
-            var q2 = new Quaternionf().rotationXYZ(v2.x, v2.y, v2.z);
-            return q1.slerp(q2, t).getEulerAnglesXYZ(new Vector3f());
-        }, false);
+        var rtR = interpolateVec3List(rotateRad, time, lerp0, false);
+//        var rtR = interpolateVec3List(rotateRad, time, (v1, v2, t) -> {
+//            var q1 = new Quaternionf().rotationXYZ(v1.x, v1.y, v1.z);
+//            var q2 = new Quaternionf().rotationXYZ(v2.x, v2.y, v2.z);
+//            return q1.slerp(q2, t).getEulerAnglesXYZ(new Vector3f());
+//        }, false);
         return Tuple.of(pos, rtR, scl);
     }
 

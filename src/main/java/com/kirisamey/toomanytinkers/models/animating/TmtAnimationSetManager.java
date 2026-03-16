@@ -80,7 +80,10 @@ public class TmtAnimationSetManager extends SimpleJsonResourceReloadListener {
                                 )),
                                 getVec3fTl(boneSclTl)
                         ));
-                    })).orElse(HashMap.empty());
+                    })).orElse(HashMap.empty()).put("_root", new TmtAnimationBoneEntry(
+                            Vector.of(Pair.of(0f, new Vector3f(0.5f, 0, 0.5f))),
+                            Vector.empty(), Vector.empty()
+                    ));
 
                     return Tuple.of(animId, new TmtAnimation(loopMode, length, bones));
                 });

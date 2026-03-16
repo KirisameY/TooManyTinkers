@@ -7,7 +7,6 @@ import com.kirisamey.toomanytinkers.TooManyTinkers;
 import com.kirisamey.toomanytinkers.models.pose.TmtAnimationControllers;
 import com.kirisamey.toomanytinkers.rendering.TmtRenderTypeGetters;
 import io.vavr.Tuple;
-import io.vavr.Tuple2;
 import io.vavr.Tuple3;
 import io.vavr.Tuple4;
 import io.vavr.collection.Vector;
@@ -44,9 +43,9 @@ public class AnimatableTicTool3DModelLoader implements IGeometryLoader<Animatabl
                 if (info.has("origin")) {
                     var vecArray = info.getAsJsonArray("origin");
                     origin = new Vector3f(
-                            vecArray.get(0).getAsFloat() / 16f,
+                            vecArray.get(0).getAsFloat() / 16f + 0.5f,
                             vecArray.get(1).getAsFloat() / 16f,
-                            vecArray.get(2).getAsFloat() / 16f
+                            vecArray.get(2).getAsFloat() / 16f + 0.5f
                     );
                 }
 
@@ -69,7 +68,7 @@ public class AnimatableTicTool3DModelLoader implements IGeometryLoader<Animatabl
 
                 ArrayList<AnimatableTicTool3DModelData.UnbakedBone> finalList = new ArrayList<>();
 
-                pushStack.push(Tuple.of(finalList, "root", o));
+                pushStack.push(Tuple.of(finalList, "_root", o));
                 while (!pushStack.empty()) {
                     var tuple = pushStack.pop();
                     var parentList = tuple._1;
@@ -117,7 +116,7 @@ public class AnimatableTicTool3DModelLoader implements IGeometryLoader<Animatabl
 
                 return finalList.get(0);
             }).orElse(new AnimatableTicTool3DModelData.UnbakedBone(
-                    "root", parts.map(p -> Pair.of(p.id(), new Vector3f())), Vector.of()
+                    "_root", parts.map(p -> Pair.of(p.id(), new Vector3f())), Vector.of()
             ));
 
             var controllerId = jsonObject.has("controller") ?
