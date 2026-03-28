@@ -53,7 +53,7 @@ public class AnimatableTicTool3DRenderer extends BlockEntityWithoutLevelRenderer
 
         var rgbaColors = model.getToolPartRgbaColors();
 
-        var posedSkeleton = model.getController().pose(itemStack, model.getSkeleton());
+        var posedSkeleton = model.getController().pose(itemStack, model.getSkeleton(), itemDisplayContext);
         var allParts = posedSkeleton.enumParts();
         var grouped = allParts.groupBy(AnimatableTicTool3DModelData.PosedPart::renderType);
         grouped.forEach((rtGetter, partList) -> {

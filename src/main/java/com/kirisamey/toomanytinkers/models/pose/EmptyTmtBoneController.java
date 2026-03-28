@@ -5,7 +5,9 @@ import io.vavr.Tuple;
 import io.vavr.Tuple2;
 import io.vavr.Tuple3;
 import io.vavr.collection.Vector;
+import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.NotNull;
 import org.joml.Matrix4f;
 
 import java.util.ArrayList;
@@ -19,7 +21,8 @@ public class EmptyTmtBoneController implements IAnimatableTicTool3DBoneControlle
     public static final EmptyTmtBoneController INSTANCE = new EmptyTmtBoneController();
 
     @Override
-    public AnimatableTicTool3DModelData.PosedBone pose(ItemStack itemStack, AnimatableTicTool3DModelData.BakedBone root, Matrix4f transform) {
+    public AnimatableTicTool3DModelData.PosedBone pose(ItemStack itemStack, AnimatableTicTool3DModelData.BakedBone root,
+                                                       @NotNull ItemDisplayContext itemDisplayContext, Matrix4f transform) {
         //noinspection DuplicatedCode
         Stack<Tuple2<
                 ArrayList<AnimatableTicTool3DModelData.PosedBone>,

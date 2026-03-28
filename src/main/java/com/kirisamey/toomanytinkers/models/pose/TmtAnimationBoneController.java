@@ -12,7 +12,9 @@ import io.vavr.collection.Vector;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.NotNull;
 import org.joml.Matrix4f;
 
 import java.util.ArrayList;
@@ -34,8 +36,9 @@ public class TmtAnimationBoneController implements IAnimatableTicTool3DBoneContr
     @Getter private final ITmtAnimationController controller;
 
     @Override
-    public AnimatableTicTool3DModelData.PosedBone pose(ItemStack itemStack, AnimatableTicTool3DModelData.BakedBone root, Matrix4f outTransform) {
-        if(animationSet == null){
+    public AnimatableTicTool3DModelData.PosedBone pose(ItemStack itemStack, AnimatableTicTool3DModelData.BakedBone root,
+                                                       @NotNull ItemDisplayContext itemDisplayContext, Matrix4f outTransform) {
+        if (animationSet == null) {
             animationSet = TmtAnimationSetManager.DATA_MANAGER.getAnimSetMap().getOrElse(animationSetId, new TmtAnimationSet(HashMap.empty()));
         }
 
