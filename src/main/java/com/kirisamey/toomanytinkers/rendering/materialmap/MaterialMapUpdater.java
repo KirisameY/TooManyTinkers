@@ -29,6 +29,9 @@ public class MaterialMapUpdater extends SimplePreparableReloadListener<MaterialM
         MinecraftForge.EVENT_BUS.post(new MaterialMappingRestartEvent());
 
         var matInfos = MaterialMapsManager.remapData(resourceManager, profilerFiller);
+
+        MaterialMapsManager.addMatsMap(matInfos, resourceManager, profilerFiller);
+
         return new MaterialMapUpdatingContext(
                 matInfos
         );
@@ -37,7 +40,7 @@ public class MaterialMapUpdater extends SimplePreparableReloadListener<MaterialM
     @Override
     protected void apply(@NotNull MaterialMapUpdatingContext ctx, @NotNull ResourceManager resourceManager, @NotNull ProfilerFiller profilerFiller) {
         var materialInfos = ctx.matInfos();
-        MaterialMapsManager.addMatsMap(materialInfos, resourceManager, profilerFiller);
+
         MaterialMapTextureManager.remapTexture(materialInfos, resourceManager, profilerFiller);
 
         // fire the event

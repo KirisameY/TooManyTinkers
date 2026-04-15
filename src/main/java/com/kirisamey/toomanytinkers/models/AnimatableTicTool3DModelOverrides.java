@@ -61,10 +61,15 @@ public class AnimatableTicTool3DModelOverrides extends ItemOverrides {
             Vector4f color = new Vector4f(1);
             if (info instanceof MaterialMapsManager.MatType.Mat1D m1d) {
                 color = TmtLookupUtils.getVertexColorRgbaF(m1d.getId(), false, isLarge, true);
+                log.debug("got vertex color for mat[{}] (1d): {}", i, matId);
             } else if (info instanceof MaterialMapsManager.MatType.Mat3D m3d) {
                 color = TmtLookupUtils.getVertexColorRgbaF(m3d.getId(), true, isLarge, true);
+                log.debug("got vertex color for mat[{}] (3d): {}", i, matId);
             } else if (info instanceof MaterialMapsManager.MatType.Mat4D m4d) {
                 partAnimPairs.add(Pair.of(i, m4d.getAnim()));
+                log.debug("got vertex color for mat[{}] (4d): {}", i, matId);
+            } else {
+                log.warn("failed got vertex color for mat[{}]: {}, got {}", i, matId, info);
             }
 
             return color;
