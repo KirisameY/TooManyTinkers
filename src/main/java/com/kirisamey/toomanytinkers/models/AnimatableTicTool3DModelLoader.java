@@ -9,6 +9,8 @@ import com.kirisamey.toomanytinkers.rendering.TmtRenderTypeGetters;
 import io.vavr.Tuple;
 import io.vavr.Tuple3;
 import io.vavr.Tuple4;
+import io.vavr.collection.HashMap;
+import io.vavr.collection.Map;
 import io.vavr.collection.Vector;
 import lombok.extern.log4j.Log4j2;
 import net.minecraft.client.renderer.block.model.ItemTransforms;
@@ -131,7 +133,20 @@ public class AnimatableTicTool3DModelLoader implements IGeometryLoader<Animatabl
 
             var largeTex = jsonObject.has("large_tex") && jsonObject.get("large_tex").getAsBoolean();
 
-            return new AnimatableTicTool3DUnbakedModel(parts, skeleton, controller, transforms, largeTex);
+            var marks = Optional.ofNullable(jsonObject.getAsJsonObject("marks")).map(obj -> {
+                return io.vavr.collection.Stream.ofAll(obj.entrySet()).toMap(entry -> {
+                    var name = entry.getKey();
+                    var v = entry.getValue().getAsJsonArray();
+                    var value = new Vector3f(
+                            v.get(0).getAsFloat() / 16f,
+                            v.get(1).getAsFloat() / 16f,
+                            v.get(2).getAsFloat() / 16f
+                    );
+                    return Tuple.of(name, value);
+                });
+            }).orElse(HashMap.empty());
+
+            return new AnimatableTicTool3DUnbakedModel(parts, skeleton, controller, transforms, largeTex, marks);
         } catch (IllegalStateException | JsonSyntaxException | ClassCastException | NullPointerException |
                  IndexOutOfBoundsException e) {
             throw new JsonParseException("AnimTicTool3DModel Loader found invalid model data.", e);

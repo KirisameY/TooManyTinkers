@@ -2,6 +2,7 @@ package com.kirisamey.toomanytinkers.models;
 
 import com.kirisamey.toomanytinkers.models.pose.IAnimatableTicTool3DBoneController;
 import com.mojang.blaze3d.vertex.PoseStack;
+import io.vavr.collection.Map;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.minecraft.client.Minecraft;
@@ -20,6 +21,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Vector3f;
 
 import java.util.List;
 import java.util.function.Function;
@@ -32,6 +34,7 @@ public class AnimatableTicTool3DOriginalBakedModel implements BakedModel {
     @Getter private final IAnimatableTicTool3DBoneController controller;
     @Getter private final ItemTransforms transforms;
     @Getter private final boolean largeTex;
+    @Getter private final Map<String, Vector3f> marks;
 
 
     private final AnimatableTicTool3DModelOverrides overrides = new AnimatableTicTool3DModelOverrides(this);

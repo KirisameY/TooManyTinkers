@@ -1,7 +1,6 @@
 package com.kirisamey.toomanytinkers.models;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
 import com.ibm.icu.impl.Pair;
 import com.kirisamey.toomanytinkers.rendering.materialmap.MaterialMapsManager;
 import com.kirisamey.toomanytinkers.utils.TmtLookupUtils;
@@ -22,16 +21,14 @@ import slimeknights.tconstruct.library.tools.nbt.ToolStack;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.IntStream;
 
 @Log4j2 @RequiredArgsConstructor
 public class AnimatableTicTool3DModelOverrides extends ItemOverrides {
 
     private final AnimatableTicTool3DOriginalBakedModel original;
 
-    private final Map<OverrideKey, AnimatableTicTool3DFinalBakedModel> cache = new HashMap<>();
+    private final HashMap<OverrideKey, AnimatableTicTool3DFinalBakedModel> cache = new HashMap<>();
 
     @Override
     public @Nullable BakedModel resolve(@NotNull BakedModel model, @NotNull ItemStack itemStack, @Nullable ClientLevel level,
@@ -41,6 +38,7 @@ public class AnimatableTicTool3DModelOverrides extends ItemOverrides {
 
         var tool = ToolStack.from(itemStack);
         var mats = tool.getMaterials().getList();
+        var mods = tool.getModifiers(); // todo
         var key = new OverrideKey(ImmutableList.copyOf(mats));
         var result = cache.get(key);
         if (result == null) {
@@ -72,8 +70,10 @@ public class AnimatableTicTool3DModelOverrides extends ItemOverrides {
             return color;
         }).toArray(Vector4f[]::new);
 
+        var marks = original.getMarks(); // todo: Modifier override
+
         return new AnimatableTicTool3DFinalBakedModel(
-                original.getSkeleton(), original.getController(), argbColors, partAnimPairs, original.getTransforms(), isLarge
+                original.getSkeleton(), original.getController(), argbColors, partAnimPairs, original.getTransforms(), isLarge, marks
         );
     }
 

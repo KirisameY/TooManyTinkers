@@ -7,6 +7,7 @@ import com.kirisamey.toomanytinkers.rendering.materialmap.events.MaterialAnimFra
 import com.kirisamey.toomanytinkers.rendering.materialmap.events.MaterialMappingRestartEvent;
 import com.kirisamey.toomanytinkers.utils.TmtColorUtils;
 import com.mojang.blaze3d.vertex.PoseStack;
+import io.vavr.collection.Map;
 import lombok.Getter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderType;
@@ -27,11 +28,11 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Stream;
 
 public class AnimatableTicTool3DFinalBakedModel implements BakedModel {
 
@@ -39,12 +40,14 @@ public class AnimatableTicTool3DFinalBakedModel implements BakedModel {
             AnimatableTicTool3DModelData.BakedBone skeleton,
             IAnimatableTicTool3DBoneController controller,
             Vector4f[] partArgbColors, List<Pair<Integer, Integer>> partAnimPairs,
-            ItemTransforms transforms, boolean largeTex) {
+            ItemTransforms transforms, boolean largeTex,
+            Map<String, Vector3f> marks) {
 
         this.skeleton = skeleton;
         this.controller = controller;
         this.toolPartRgbaColors = partArgbColors;
         this.transforms = transforms;
+        this.marks = marks;
 
         for (var pair : partAnimPairs) {
             while (ANIM_MAT_COLOR_UPDATE_LIST.size() <= pair.second) {
@@ -63,6 +66,7 @@ public class AnimatableTicTool3DFinalBakedModel implements BakedModel {
     @Getter private final Vector4f[] toolPartRgbaColors;
     @Getter private final ItemTransforms transforms;
     @Getter private final boolean largeTex;
+    @Getter private final Map<String, Vector3f> marks;
 
     @Override
     public @NotNull List<BakedQuad> getQuads(@Nullable BlockState blockState, @Nullable Direction direction, @NotNull RandomSource randomSource) {

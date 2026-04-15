@@ -1,12 +1,11 @@
 package com.kirisamey.toomanytinkers.models;
 
 import com.ibm.icu.impl.Pair;
-import com.kirisamey.toomanytinkers.TmtRegistries;
-import com.kirisamey.toomanytinkers.models.pose.EmptyTmtBoneController;
 import com.kirisamey.toomanytinkers.models.pose.IAnimatableTicTool3DBoneController;
 import io.vavr.Tuple;
 import io.vavr.Tuple2;
 import io.vavr.Tuple3;
+import io.vavr.collection.Map;
 import io.vavr.collection.Vector;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +18,11 @@ import net.minecraftforge.client.model.geometry.IGeometryBakingContext;
 import net.minecraftforge.client.model.geometry.IUnbakedGeometry;
 import org.joml.Vector3f;
 
-import java.util.*;
+
+import java.util.ArrayList;
+import java.util.Objects;
+import java.util.Set;
+import java.util.Stack;
 import java.util.function.Function;
 
 @RequiredArgsConstructor
@@ -30,6 +33,7 @@ public class AnimatableTicTool3DUnbakedModel implements IUnbakedGeometry<Animata
     @Getter private final IAnimatableTicTool3DBoneController controller;
     @Getter private final ItemTransforms transforms;
     @Getter private final boolean largeTex;
+    @Getter private final Map<String, Vector3f> marks;
 
 
     @Override
@@ -89,7 +93,7 @@ public class AnimatableTicTool3DUnbakedModel implements IUnbakedGeometry<Animata
 
         var bakedSkeleton = finalList.get(0);
 
-        return new AnimatableTicTool3DOriginalBakedModel(bakedSkeleton, controller, transforms, largeTex);
+        return new AnimatableTicTool3DOriginalBakedModel(bakedSkeleton, controller, transforms, largeTex, marks);
     }
 
     @Override public Set<String> getConfigurableComponentNames() {
