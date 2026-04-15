@@ -1,6 +1,7 @@
 package com.kirisamey.toomanytinkers.models.pose;
 
 import com.kirisamey.toomanytinkers.TmtRegistries;
+import com.kirisamey.toomanytinkers.models.AnimatableTicTool3DFinalBakedModel;
 import com.kirisamey.toomanytinkers.models.AnimatableTicTool3DModelData;
 import com.kirisamey.toomanytinkers.models.animating.TmtAnimationSet;
 import com.kirisamey.toomanytinkers.models.animating.TmtAnimationSetManager;
@@ -36,7 +37,7 @@ public class TmtAnimationBoneController implements IAnimatableTicTool3DBoneContr
     @Getter private final ITmtAnimationController controller;
 
     @Override
-    public AnimatableTicTool3DModelData.PosedBone pose(ItemStack itemStack, AnimatableTicTool3DModelData.BakedBone root,
+    public AnimatableTicTool3DModelData.PosedBone pose(ItemStack itemStack, AnimatableTicTool3DFinalBakedModel model,
                                                        @NotNull ItemDisplayContext itemDisplayContext, Matrix4f outTransform) {
         if (animationSet == null) {
             animationSet = TmtAnimationSetManager.DATA_MANAGER.getAnimSetMap().getOrElse(animationSetId, new TmtAnimationSet(HashMap.empty()));
@@ -54,7 +55,7 @@ public class TmtAnimationBoneController implements IAnimatableTicTool3DBoneContr
                 >> poseStack = new Stack<>();
 
         var finalList = new ArrayList<AnimatableTicTool3DModelData.PosedBone>();
-        pushStack.push(Tuple.of(finalList, root));
+        pushStack.push(Tuple.of(finalList, model.getSkeleton()));
 
         while (!pushStack.empty()) {
             var t = pushStack.pop();

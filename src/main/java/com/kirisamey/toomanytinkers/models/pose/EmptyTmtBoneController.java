@@ -1,5 +1,6 @@
 package com.kirisamey.toomanytinkers.models.pose;
 
+import com.kirisamey.toomanytinkers.models.AnimatableTicTool3DFinalBakedModel;
 import com.kirisamey.toomanytinkers.models.AnimatableTicTool3DModelData;
 import io.vavr.Tuple;
 import io.vavr.Tuple2;
@@ -21,7 +22,7 @@ public class EmptyTmtBoneController implements IAnimatableTicTool3DBoneControlle
     public static final EmptyTmtBoneController INSTANCE = new EmptyTmtBoneController();
 
     @Override
-    public AnimatableTicTool3DModelData.PosedBone pose(ItemStack itemStack, AnimatableTicTool3DModelData.BakedBone root,
+    public AnimatableTicTool3DModelData.PosedBone pose(ItemStack itemStack, AnimatableTicTool3DFinalBakedModel model,
                                                        @NotNull ItemDisplayContext itemDisplayContext, Matrix4f transform) {
         //noinspection DuplicatedCode
         Stack<Tuple2<
@@ -35,7 +36,7 @@ public class EmptyTmtBoneController implements IAnimatableTicTool3DBoneControlle
                 >> poseStack = new Stack<>();
 
         var finalList = new ArrayList<AnimatableTicTool3DModelData.PosedBone>();
-        pushStack.push(Tuple.of(finalList, root));
+        pushStack.push(Tuple.of(finalList, model.getSkeleton()));
 
         while (!pushStack.empty()) {
             var t = pushStack.pop();
