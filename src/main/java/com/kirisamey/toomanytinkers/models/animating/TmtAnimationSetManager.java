@@ -4,6 +4,7 @@ import com.google.gson.*;
 import com.ibm.icu.impl.Pair;
 import com.kirisamey.toomanytinkers.TooManyTinkers;
 import io.vavr.Tuple;
+import io.vavr.Tuple3;
 import io.vavr.collection.HashMap;
 import io.vavr.collection.Map;
 import io.vavr.collection.Stream;
@@ -72,16 +73,16 @@ public class TmtAnimationSetManager extends SimpleJsonResourceReloadListener {
                         var boneRotTl = getTimeLine(boneTimeLine, "rotation");//Optional.ofNullable(boneTimeLine.getAsJsonObject("rotation"));
                         var boneSclTl = getTimeLine(boneTimeLine, "scale");//Optional.ofNullable(boneTimeLine.getAsJsonObject("scale"));
                         return Tuple.of(boneName, new TmtAnimationBoneEntry(
-                                getVec3fTl(bonePosTl).map(p -> Pair.of(
-                                        p.first, p.second.mul(1 / 16f).mul(-1, 1, 1)
+                                getVec3fTl(bonePosTl).map(p -> Tuple.of(
+                                        p._1, p._2.mul(1 / 16f).mul(-1, 1, 1), p._3.mul(1 / 16f).mul(-1, 1, 1)
                                 )),
-                                getVec3fTl(boneRotTl).map(p -> Pair.of(
-                                        p.first, p.second.mul((float) Math.PI / 180f)
+                                getVec3fTl(boneRotTl).map(p -> Tuple.of(
+                                        p._1, p._2.mul((float) Math.PI / 180f), p._3.mul((float) Math.PI / 180f)
                                 )),
                                 getVec3fTl(boneSclTl)
                         ));
                     })).orElse(HashMap.empty()).put("_root", new TmtAnimationBoneEntry(
-                            Vector.of(Pair.of(0f, new Vector3f(0.5f, 0, 0.5f))),
+                            Vector.of(Tuple.of(0f, new Vector3f(0.5f, 0, 0.5f), new Vector3f(0.5f, 0, 0.5f))),
                             Vector.empty(), Vector.empty()
                     ));
 
@@ -110,13 +111,24 @@ public class TmtAnimationSetManager extends SimpleJsonResourceReloadListener {
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    private static Vector<Pair<Float, Vector3f>> getVec3fTl(Optional<JsonObject> vec3Tl) {
+    private static Vector<Tuple3<Float, Vector3f, Vector3f>> getVec3fTl(Optional<JsonObject> vec3Tl) {
         return vec3Tl.map(pTl -> Vector.ofAll(pTl.entrySet().stream()).map(e0 -> {
             var time = Float.valueOf(e0.getKey());
-            var vec = e0.getValue().getAsJsonArray();
-            var vec3 = new Vector3f(vec.get(0).getAsFloat(), vec.get(1).getAsFloat(), vec.get(2).getAsFloat());
-            return Pair.of(time, vec3);
+            if (e0.getValue().isJsonArray()) {
+                var vec = e0.getValue().getAsJsonArray();
+                var vec3 = getVec3(vec);
+                return Tuple.of(time, vec3, new Vector3f(vec3));
+            } else {
+                var obj = e0.getValue().getAsJsonObject();
+                var prev = obj.getAsJsonArray("pre");
+                var after = obj.getAsJsonArray("post");
+                return Tuple.of(time, getVec3(prev), getVec3(after));
+            }
         })).orElse(Vector.empty());
+    }
+
+    private static Vector3f getVec3(JsonArray vec) {
+        return new Vector3f(vec.get(0).getAsFloat(), vec.get(1).getAsFloat(), vec.get(2).getAsFloat());
     }
 
 

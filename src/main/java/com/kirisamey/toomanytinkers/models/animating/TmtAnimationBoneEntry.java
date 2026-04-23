@@ -2,6 +2,7 @@ package com.kirisamey.toomanytinkers.models.animating;
 
 import com.ibm.icu.impl.Pair;
 import io.vavr.Tuple;
+import io.vavr.Tuple2;
 import io.vavr.Tuple3;
 import io.vavr.collection.Vector;
 import lombok.Getter;
@@ -13,9 +14,9 @@ import org.joml.Vector3f;
 @SuppressWarnings("ClassCanBeRecord")
 @RequiredArgsConstructor
 public class TmtAnimationBoneEntry {
-    @Getter private final Vector<Pair<Float, Vector3f>> position;
-    @Getter private final Vector<Pair<Float, Vector3f>> rotateRad;
-    @Getter private final Vector<Pair<Float, Vector3f>> scale;
+    @Getter private final Vector<Tuple3<Float, Vector3f, Vector3f>> position;
+    @Getter private final Vector<Tuple3<Float, Vector3f, Vector3f>> rotateRad;
+    @Getter private final Vector<Tuple3<Float, Vector3f, Vector3f>> scale;
 
     public Tuple3<Vector3f, Vector3f, Vector3f> getInterpolatedTRrS(float time) {
         time /= 20f;
@@ -33,15 +34,15 @@ public class TmtAnimationBoneEntry {
     }
 
     private static Vector3f interpolateVec3List(
-            Vector<Pair<Float, Vector3f>> list, float time,
+            Vector<Tuple3<Float, Vector3f, Vector3f>> list, float time,
             TriFunction<Vector3f, Vector3f, Float, Vector3f> lerp, boolean defaultAs1) {
         if (list.isEmpty()) return new Vector3f(defaultAs1 ? 1 : 0);
 
-        Vector3f last = list.get(0).second;
+        Tuple2<Vector3f, Vector3f> last = list.get(0).apply((t, p, n) -> Tuple.of(p, n));
         float lastTime = 0;
-        for (Pair<Float, Vector3f> pair : list) {
-            var t = pair.first;
-            var v = pair.second;
+        for (var tuple : list) {
+            var t = tuple._1;
+            var v = tuple.apply((_t, p, n) -> Tuple.of(p, n));
             if (t < time) {
                 last = v;
                 lastTime = t;
@@ -51,8 +52,8 @@ public class TmtAnimationBoneEntry {
             } else {
                 t = 1f;
             }
-            return lerp.apply(last, v, t);
+            return lerp.apply(last._2, v._1, t);
         }
-        return last;
+        return last._2;
     }
 }
