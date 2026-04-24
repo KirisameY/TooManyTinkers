@@ -74,10 +74,14 @@ public class TmtAnimationSetManager extends SimpleJsonResourceReloadListener {
                         var boneSclTl = getTimeLine(boneTimeLine, "scale");//Optional.ofNullable(boneTimeLine.getAsJsonObject("scale"));
                         return Tuple.of(boneName, new TmtAnimationBoneEntry(
                                 getVec3fTl(bonePosTl).map(p -> Tuple.of(
-                                        p._1, p._2.mul(1 / 16f).mul(-1, 1, 1), p._3.mul(1 / 16f).mul(-1, 1, 1)
+                                        p._1,
+                                        p._2.mul(1 / 16f).mul(-1, 1, 1),
+                                        p._3.mul(1 / 16f).mul(-1, 1, 1)
                                 )),
                                 getVec3fTl(boneRotTl).map(p -> Tuple.of(
-                                        p._1, p._2.mul((float) Math.PI / 180f), p._3.mul((float) Math.PI / 180f)
+                                        p._1,
+                                        p._2.mul((float) Math.PI / 180f).mul(-1, 1, 1),
+                                        p._3.mul((float) Math.PI / 180f).mul(-1, 1, 1)
                                 )),
                                 getVec3fTl(boneSclTl)
                         ));

@@ -68,7 +68,7 @@ public class TmtAnimationBoneController implements IAnimatableTicTool3DBoneContr
             });
         }
 
-        var animInfo = controller.getPose(itemStack);
+        var animInfo = controller.getPose(itemStack, itemDisplayContext);
         var animId = animInfo._1;
         var animTime = animInfo._2;
 
