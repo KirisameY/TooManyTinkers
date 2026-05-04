@@ -6,12 +6,15 @@ import com.kirisamey.toomanytinkers.TmtRegistries;
 import com.kirisamey.toomanytinkers.TooManyTinkers;
 import com.kirisamey.toomanytinkers.models.pose.TmtAnimationControllers;
 import com.kirisamey.toomanytinkers.rendering.TmtRenderTypeGetters;
+import com.mojang.logging.LogUtils;
 import io.vavr.Tuple;
 import io.vavr.Tuple3;
 import io.vavr.Tuple4;
 import io.vavr.collection.HashMap;
 import io.vavr.collection.Map;
+import io.vavr.collection.Stream;
 import io.vavr.collection.Vector;
+import io.vavr.control.Option;
 import lombok.extern.log4j.Log4j2;
 import net.minecraft.client.renderer.block.model.ItemTransforms;
 import net.minecraft.resources.ResourceLocation;
@@ -22,40 +25,20 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import org.joml.Vector3f;
 
-import java.util.*;
-import java.util.stream.Stream;
+import java.util.ArrayList;
+import java.util.Objects;
+import java.util.Stack;
 
 @Log4j2
 public class AnimatableTicTool3DModelLoader implements IGeometryLoader<AnimatableTicTool3DUnbakedModel> {
+
     @Override
     public AnimatableTicTool3DUnbakedModel read(JsonObject jsonObject, JsonDeserializationContext deserializationContext) throws JsonParseException {
         try {
             var partsJson = jsonObject.getAsJsonObject("parts");
-            var parts = Vector.ofAll(partsJson.entrySet().stream().map(e -> {
-                var id = e.getKey();
-                var info = e.getValue().getAsJsonObject();
-                var model = Objects.requireNonNull(ResourceLocation.tryParse(info.get("model").getAsString()));
-                var renderType = info.has("render_type") ?
-                        TmtRegistries.RENDER_TYPE_GETTERS.get().getValue(
-                                ResourceLocation.parse(info.get("render_type").getAsString())
-                        ) : TmtRenderTypeGetters.TINKER_MAPPING.get();
-                var toolPart = info.has("tool_part") ? info.get("tool_part").getAsInt() : -1;
+            var parts = getUnbakedParts(partsJson);
 
-                var origin = new Vector3f();
-                if (info.has("origin")) {
-                    var vecArray = info.getAsJsonArray("origin");
-                    origin = new Vector3f(
-                            vecArray.get(0).getAsFloat() / 16f + 0.5f,
-                            vecArray.get(1).getAsFloat() / 16f,
-                            vecArray.get(2).getAsFloat() / 16f + 0.5f
-                    );
-                }
-
-                return new AnimatableTicTool3DModelData.UnbakedPart(id, model, renderType, toolPart, origin);
-            }));
-
-
-            var boneJson = Optional.ofNullable(jsonObject.getAsJsonObject("bone"));
+            var boneJson = Option.of(jsonObject.getAsJsonObject("bone"));
 
             var skeleton = boneJson.map(o -> {
                 Stack<Tuple3<
@@ -94,8 +77,9 @@ public class AnimatableTicTool3DModelLoader implements IGeometryLoader<Animatabl
                     var jsonObj = tuple._3;
                     var selfList = tuple._4;
 
+                    //noinspection DuplicatedCode
                     var boneParts = Vector.ofAll(jsonObj.has("_parts") ?
-                            jsonObj.getAsJsonArray("_parts").asList().stream().map(e -> {
+                            Stream.ofAll(jsonObj.getAsJsonArray("_parts")).map(e -> {
                                 if (e.isJsonArray()) {
                                     var a = e.getAsJsonArray();
                                     var n = a.get(0).getAsString();
@@ -117,7 +101,7 @@ public class AnimatableTicTool3DModelLoader implements IGeometryLoader<Animatabl
                 }
 
                 return finalList.get(0);
-            }).orElse(new AnimatableTicTool3DModelData.UnbakedBone(
+            }).getOrElse(new AnimatableTicTool3DModelData.UnbakedBone(
                     "_root", parts.map(p -> Pair.of(p.id(), new Vector3f())), Vector.of()
             ));
 
@@ -133,29 +117,68 @@ public class AnimatableTicTool3DModelLoader implements IGeometryLoader<Animatabl
 
             var largeTex = jsonObject.has("large_tex") && jsonObject.get("large_tex").getAsBoolean();
 
-            var marks = Optional.ofNullable(jsonObject.getAsJsonObject("marks")).map(obj -> {
-                return io.vavr.collection.Stream.ofAll(obj.entrySet()).toMap(entry -> {
-                    var name = entry.getKey();
-                    var v = entry.getValue().getAsJsonArray();
-                    var value = new Vector3f(
-                            v.get(0).getAsFloat() / 16f,
-                            v.get(1).getAsFloat() / 16f,
-                            v.get(2).getAsFloat() / 16f
-                    );
-                    return Tuple.of(name, value);
-                });
-            }).orElse(HashMap.empty());
+            var marks = Option.of(jsonObject.getAsJsonObject("marks"))
+                    .map(AnimatableTicTool3DModelLoader::getMarks)
+                    .getOrElse(HashMap.empty());
 
-            return new AnimatableTicTool3DUnbakedModel(parts, skeleton, controller, transforms, largeTex, marks);
+            var mods = Option.of(jsonObject.getAsJsonArray("modifiers")).map(jsa -> {
+                return Stream.ofAll(jsa)
+                        .map(JsonElement::getAsString)
+                        .map(ResourceLocation::parse)
+                        .toVector();
+            }).getOrElse(Vector.empty());
+
+            return new AnimatableTicTool3DUnbakedModel(parts, skeleton, controller, transforms, largeTex, marks, mods);
         } catch (IllegalStateException | JsonSyntaxException | ClassCastException | NullPointerException |
                  IndexOutOfBoundsException e) {
             throw new JsonParseException("AnimTicTool3DModel Loader found invalid model data.", e);
         }
     }
 
+    static Vector<AnimatableTicTool3DModelData.UnbakedPart> getUnbakedParts(JsonObject partsJson) {
+        return Vector.ofAll(partsJson.entrySet().stream().map(e -> {
+            var id = e.getKey();
+            var info = e.getValue().getAsJsonObject();
+            var model = Objects.requireNonNull(ResourceLocation.tryParse(info.get("model").getAsString()));
+            var renderType = info.has("render_type") ?
+                    TmtRegistries.RENDER_TYPE_GETTERS.get().getValue(
+                            ResourceLocation.parse(info.get("render_type").getAsString())
+                    ) : TmtRenderTypeGetters.TINKER_MAPPING.get();
+            var toolPart = info.has("tool_part") ? info.get("tool_part").getAsInt() : -1;
+
+            var origin = new Vector3f();
+            if (info.has("origin")) {
+                var vecArray = info.getAsJsonArray("origin");
+                origin = new Vector3f(
+                        vecArray.get(0).getAsFloat() / 16f + 0.5f,
+                        vecArray.get(1).getAsFloat() / 16f,
+                        vecArray.get(2).getAsFloat() / 16f + 0.5f
+                );
+            }
+
+            return new AnimatableTicTool3DModelData.UnbakedPart(id, model, renderType, toolPart, origin);
+        }));
+    }
+
+    static Map<String, Vector3f> getMarks(JsonObject obj) {
+        return Stream.ofAll(obj.entrySet()).toMap(entry -> {
+            var name = entry.getKey();
+            var v = entry.getValue().getAsJsonArray();
+            var value = new Vector3f(
+                    v.get(0).getAsFloat() / 16f,
+                    v.get(1).getAsFloat() / 16f,
+                    v.get(2).getAsFloat() / 16f
+            );
+            return Tuple.of(name, value);
+        });
+    }
+
 
     @Mod.EventBusSubscriber(modid = TooManyTinkers.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
-    public static class Registerer {
+    public static class ATT3ModelLoaderRegisterer {
+
+        // 佛具有big，如果两个类实现了同样的泛型接口然后有同名内部类用来注册同一个事件的话，会有一个被忽略然后另一个注册两次，我不得不起个名字区别开
+        // Fuck Forge
 
         @SubscribeEvent
         public static void onRegisterGeometryLoaders(ModelEvent.RegisterGeometryLoaders event) {

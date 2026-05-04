@@ -1,27 +1,40 @@
 package com.kirisamey.toomanytinkers.models;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.ibm.icu.impl.Pair;
 import com.kirisamey.toomanytinkers.rendering.materialmap.MaterialMapsManager;
 import com.kirisamey.toomanytinkers.utils.TmtLookupUtils;
+import io.vavr.Tuple;
+import io.vavr.Tuple2;
+import io.vavr.Tuple3;
+import io.vavr.collection.Map;
+import io.vavr.collection.Stream;
+import io.vavr.collection.Vector;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.block.model.ItemOverrides;
+import net.minecraft.client.renderer.block.model.ItemTransform;
+import net.minecraft.client.renderer.block.model.ItemTransforms;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Vector3f;
 import org.joml.Vector4f;
 import slimeknights.tconstruct.library.materials.definition.MaterialVariant;
+import slimeknights.tconstruct.library.modifiers.ModifierEntry;
 import slimeknights.tconstruct.library.tools.item.ModifiableItem;
 import slimeknights.tconstruct.library.tools.nbt.ToolStack;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.Objects;
+import java.util.Stack;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 @Log4j2 @RequiredArgsConstructor
 public class AnimatableTicTool3DModelOverrides extends ItemOverrides {
@@ -37,23 +50,45 @@ public class AnimatableTicTool3DModelOverrides extends ItemOverrides {
             return super.resolve(model, itemStack, level, livingEntity, seed);
 
         var tool = ToolStack.from(itemStack);
-        var mats = tool.getMaterials().getList();
-        var mods = tool.getModifiers(); // todo
-        var key = new OverrideKey(ImmutableList.copyOf(mats));
+        var mats = Vector.ofAll(tool.getMaterials());
+        var mods = Vector.ofAll(tool.getModifiers()); // todo
+        var key = new OverrideKey(mats, mods);
+        return findOrCreateModel(key);
+    }
+
+    private AnimatableTicTool3DFinalBakedModel findOrCreateModel(OverrideKey key) {
         var result = cache.get(key);
         if (result == null) {
-            result = createNewModel(key, mats);
+
+            var modT = key.modifiers.map(entry -> {
+                var modStream = original.getAvailableMods().toStream()
+                        .filter(mod -> entry.matches(mod.getId()) &&
+                                entry.getLevel() >= mod.getMinLevel())
+                        .sortBy(AnimatableTicTool3DBakedModifier::getMinLevel);
+                return modStream.map(mod -> Tuple.of(new ModifierEntry(mod.getId(), mod.getMinLevel()), mod));
+            }).flatMap(s -> s).unzip(t -> t);
+
+            var subKey = new OverrideKey(key.partMats, modT._1);
+            result = cache.get(subKey);
+            if (result == null) {
+
+                result = createNewModel(key.partMats, modT._2);
+                cache.put(subKey, result);
+            }
+
             cache.put(key, result);
         }
         return result;
     }
 
-    private AnimatableTicTool3DFinalBakedModel createNewModel(OverrideKey key, List<MaterialVariant> mats) {
-        List<Pair<Integer, Integer>> partAnimPairs = new ArrayList<>();
+    private AnimatableTicTool3DFinalBakedModel createNewModel(
+            Vector<MaterialVariant> mats, Vector<AnimatableTicTool3DBakedModifier> mods) {
+
+        ArrayList<Pair<Integer, Integer>> partAnimPairs = new ArrayList<>();
         AtomicInteger index = new AtomicInteger(0);
         var isLarge = original.isLargeTex();
 
-        var argbColors = mats.stream().map(mv -> {
+        var argbColors = mats.map(mv -> {
             var i = index.getAndAdd(1);
             var matId = mv.getVariant().getLocation('_');
             var info = MaterialMapsManager.getTexInfo(matId);
@@ -73,16 +108,92 @@ public class AnimatableTicTool3DModelOverrides extends ItemOverrides {
             }
 
             return color;
-        }).toArray(Vector4f[]::new);
+        }).toJavaArray(Vector4f[]::new);
 
-        var marks = original.getMarks(); // todo: Modifier override
+
+        Stack<Tuple2<
+                ArrayList<AnimatableTicTool3DModelData.BakedBone>,
+                AnimatableTicTool3DModelData.BakedBone
+                >> pushStack = new Stack<>();
+        Stack<Tuple3<
+                ArrayList<AnimatableTicTool3DModelData.BakedBone>,
+                AnimatableTicTool3DModelData.BakedBone,
+                ArrayList<AnimatableTicTool3DModelData.BakedBone>
+                >> bakeStack = new Stack<>();
+
+        ArrayList<AnimatableTicTool3DModelData.BakedBone> finalList = new ArrayList<>();
+        pushStack.push(Tuple.of(finalList, original.getSkeleton()));
+        //noinspection DuplicatedCode
+        while (!pushStack.empty()) {
+            var tuple = pushStack.pop();
+            var parentList = tuple._1;
+            var unmodded = tuple._2;
+            var selfList = new ArrayList<AnimatableTicTool3DModelData.BakedBone>();
+            bakeStack.push(Tuple.of(parentList, unmodded, selfList));
+            unmodded.bones().forEach(b -> pushStack.push(Tuple.of(selfList, b)));
+        }
+        while (!bakeStack.empty()) {
+            var tuple = bakeStack.pop();
+            var parentList = tuple._1;
+            var unmodded = tuple._2;
+            var selfList = tuple._3;
+            var moddedParts = mods.toStream()
+                    .flatMap(AnimatableTicTool3DBakedModifier::getMods)
+                    .filter(m -> m.boneId().equals(unmodded.id()))
+                    .foldLeft(unmodded.parts().toStream(), (partsAcc, boneMod) -> {
+                        return Stream.concat(
+                                partsAcc.toStream().filter(part -> !boneMod.removeParts().contains(part.id())),
+                                boneMod.newParts()
+                        ).distinctByKeepLast(AnimatableTicTool3DModelData.BakedPart::id);
+                    }).toVector();
+            var newBone = new AnimatableTicTool3DModelData.BakedBone(unmodded.id(), moddedParts, Vector.ofAll(selfList));
+            parentList.add(newBone);
+        }
+        var skeleton = finalList.get(0);
+
+        var controller = mods.lastOption().flatMap(AnimatableTicTool3DBakedModifier::getController).getOrElse(original.getController());
+
+        var transforms = mods.foldLeft(original.getTransforms(), (transAcc, mod) -> {
+            var transMod = mod.getTransforms();
+            if (transMod == ItemTransforms.NO_TRANSFORMS) return transAcc;
+
+            var tpL = transAcc.thirdPersonLeftHand;
+            var tpR = transAcc.thirdPersonRightHand;
+            var fpL = transAcc.firstPersonLeftHand;
+            var fpR = transAcc.firstPersonRightHand;
+            var head = transAcc.head;
+            var gui = transAcc.gui;
+            var gnd = transAcc.ground;
+            var fixed = transAcc.fixed;
+            var modded = transMod.moddedTransforms;
+
+            if (transMod.thirdPersonLeftHand != ItemTransform.NO_TRANSFORM) tpL = transMod.thirdPersonLeftHand;
+            if (transMod.thirdPersonRightHand != ItemTransform.NO_TRANSFORM) tpR = transMod.thirdPersonRightHand;
+            if (transMod.firstPersonLeftHand != ItemTransform.NO_TRANSFORM) fpL = transMod.firstPersonLeftHand;
+            if (transMod.firstPersonRightHand != ItemTransform.NO_TRANSFORM) fpR = transMod.firstPersonRightHand;
+            if (transMod.head != ItemTransform.NO_TRANSFORM) head = transMod.head;
+            if (transMod.gui != ItemTransform.NO_TRANSFORM) gui = transMod.gui;
+            if (transMod.ground != ItemTransform.NO_TRANSFORM) gnd = transMod.ground;
+            if (transMod.fixed != ItemTransform.NO_TRANSFORM) fixed = transMod.fixed;
+            if (!transAcc.moddedTransforms.isEmpty()) {
+                modded = ImmutableMap.copyOf(io.vavr.collection.HashMap.ofAll(transAcc.moddedTransforms)
+                        .merge(io.vavr.collection.HashMap.ofAll(modded))
+                        .toJavaMap()
+                );
+            }
+
+            return new ItemTransforms(tpL, tpR, fpL, fpR, head, gui, gnd, fixed, modded);
+        });
+
+        var marks = mods.foldLeft(original.getMarks(), (marksAcc, mod) -> {
+            return mod.getMarks().merge(marksAcc);
+        });
 
         return new AnimatableTicTool3DFinalBakedModel(
-                original.getSkeleton(), original.getController(), argbColors, partAnimPairs, original.getTransforms(), isLarge, marks
+                skeleton, controller, argbColors, partAnimPairs, transforms, isLarge, marks
         );
     }
 
-    record OverrideKey(ImmutableList<MaterialVariant> partMats) {
-        // todo: 加入词条
+    private record OverrideKey(Vector<MaterialVariant> partMats, Vector<ModifierEntry> modifiers) {
     }
 }

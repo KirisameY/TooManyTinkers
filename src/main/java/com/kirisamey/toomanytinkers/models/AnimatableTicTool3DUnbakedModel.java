@@ -7,6 +7,7 @@ import io.vavr.Tuple2;
 import io.vavr.Tuple3;
 import io.vavr.collection.Map;
 import io.vavr.collection.Vector;
+import io.vavr.control.Option;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import net.minecraft.client.renderer.block.model.ItemOverrides;
@@ -17,6 +18,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.client.model.geometry.IGeometryBakingContext;
 import net.minecraftforge.client.model.geometry.IUnbakedGeometry;
 import org.joml.Vector3f;
+import slimeknights.tconstruct.library.modifiers.ModifierId;
 
 
 import java.util.ArrayList;
@@ -34,6 +36,7 @@ public class AnimatableTicTool3DUnbakedModel implements IUnbakedGeometry<Animata
     @Getter private final ItemTransforms transforms;
     @Getter private final boolean largeTex;
     @Getter private final Map<String, Vector3f> marks;
+    @Getter private final Vector<ResourceLocation> availableMods;
 
 
     @Override
@@ -57,7 +60,7 @@ public class AnimatableTicTool3DUnbakedModel implements IUnbakedGeometry<Animata
                 var offset = new Vector3f(p.second);
                 var unb = pm.first;
                 var model = pm.second;
-                offset = offset.sub(unb.origin());
+                offset = offset.sub(unb.origin(), new Vector3f());
                 return new AnimatableTicTool3DModelData.BakedPart(unb.id(), model, unb.renderType(), unb.toolPart(), offset);
             });
         };
@@ -74,6 +77,7 @@ public class AnimatableTicTool3DUnbakedModel implements IUnbakedGeometry<Animata
 
         ArrayList<AnimatableTicTool3DModelData.BakedBone> finalList = new ArrayList<>();
         pushStack.push(Tuple.of(finalList, skeleton));
+        //noinspection DuplicatedCode
         while (!pushStack.empty()) {
             var tuple = pushStack.pop();
             var parentList = tuple._1;
@@ -93,7 +97,14 @@ public class AnimatableTicTool3DUnbakedModel implements IUnbakedGeometry<Animata
 
         var bakedSkeleton = finalList.get(0);
 
-        return new AnimatableTicTool3DOriginalBakedModel(bakedSkeleton, controller, transforms, largeTex, marks);
+        var mods = availableMods
+                .map(mId -> baker.bake(mId, modelState, spriteGetter))
+                .flatMap(m -> {
+                    if (m instanceof AnimatableTicTool3DBakedModifier mod) return Option.some(mod);
+                    return Option.none();
+                });
+
+        return new AnimatableTicTool3DOriginalBakedModel(bakedSkeleton, controller, transforms, largeTex, marks, mods);
     }
 
     @Override public Set<String> getConfigurableComponentNames() {

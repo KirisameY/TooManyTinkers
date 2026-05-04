@@ -64,4 +64,16 @@ public class AnimatableTicTool3DModelData {
             }), bones.toStream().flatMap(b -> b.enumParts(nowTrans)));
         }
     }
+
+
+    public record UnbakedBoneModifier(
+            String boneId, Vector<Pair<String, Vector3f>> newParts, Vector<String> removeParts
+    ) {
+    }
+
+    public record BakedBoneModifier(
+            String boneId, Vector<BakedPart> newParts, Vector<String> removeParts
+    ) {
+    }
+
 }
