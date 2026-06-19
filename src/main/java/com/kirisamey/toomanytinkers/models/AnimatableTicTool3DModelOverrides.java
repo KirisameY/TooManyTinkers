@@ -51,7 +51,7 @@ public class AnimatableTicTool3DModelOverrides extends ItemOverrides {
 
         var tool = ToolStack.from(itemStack);
         var mats = Vector.ofAll(tool.getMaterials());
-        var mods = Vector.ofAll(tool.getModifiers()); // todo
+        var mods = Vector.ofAll(tool.getModifiers());
         var key = new OverrideKey(mats, mods);
         return findOrCreateModel(key);
     }
@@ -98,7 +98,7 @@ public class AnimatableTicTool3DModelOverrides extends ItemOverrides {
                 color = TmtLookupUtils.getVertexColorRgbaF(m1d.getId(), false, isLarge, true);
                 log.debug("got vertex color for mat[{}] (1d): {}", i, matId);
             } else if (info instanceof MaterialMapsManager.MatType.Mat3D m3d) {
-                color = TmtLookupUtils.getVertexColorRgbaF(m3d.getId(), true, isLarge, true);
+                color = TmtLookupUtils.getVertexColorRgbaF(m3d.getId(), true, isLarge, m3d.is32x());
                 log.debug("got vertex color for mat[{}] (3d): {}", i, matId);
             } else if (info instanceof MaterialMapsManager.MatType.Mat4D m4d) {
                 partAnimPairs.add(Pair.of(i, m4d.getAnim()));
