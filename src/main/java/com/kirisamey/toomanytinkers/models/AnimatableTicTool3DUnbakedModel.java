@@ -42,6 +42,7 @@ public class AnimatableTicTool3DUnbakedModel implements IUnbakedGeometry<Animata
     @Override
     public void resolveParents(Function<ResourceLocation, UnbakedModel> modelGetter, IGeometryBakingContext context) {
         parts.forEach(p -> modelGetter.apply(p.model()));
+        availableMods.forEach(modelGetter::apply);
     }
 
     @Override

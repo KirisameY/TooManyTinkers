@@ -10,10 +10,7 @@ import lombok.RequiredArgsConstructor;
 import net.minecraft.client.renderer.block.model.ItemOverrides;
 import net.minecraft.client.renderer.block.model.ItemTransforms;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.Material;
-import net.minecraft.client.resources.model.ModelBaker;
-import net.minecraft.client.resources.model.ModelState;
+import net.minecraft.client.resources.model.*;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.client.model.geometry.IGeometryBakingContext;
 import net.minecraftforge.client.model.geometry.IUnbakedGeometry;
@@ -34,6 +31,11 @@ public class AnimatableTicTool3DUnbakedModifier implements IUnbakedGeometry<Anim
     @Getter private final ItemTransforms transforms;
     @Getter private final Vector<AnimatableTicTool3DModelData.UnbakedBoneModifier> mods;
     @Getter private final Map<String, Vector3f> marks;
+
+    @Override
+    public void resolveParents(Function<ResourceLocation, UnbakedModel> modelGetter, IGeometryBakingContext context) {
+        parts.forEach(p -> modelGetter.apply(p.model()));
+    }
 
     @Override
     public BakedModel bake(
