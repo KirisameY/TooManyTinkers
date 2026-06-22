@@ -3,6 +3,7 @@ package com.kirisamey.toomanytinkers.configs;
 import com.ibm.icu.impl.Pair;
 import com.kirisamey.toomanytinkers.TooManyTinkers;
 import com.mojang.logging.LogUtils;
+import lombok.Getter;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.common.ForgeConfigSpec;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
@@ -19,13 +20,18 @@ public class TmtConfig {
     // <editor-fold desc="Define">
     private static final ForgeConfigSpec.Builder BUILDER = new ForgeConfigSpec.Builder();
 
+    private static final ForgeConfigSpec.ConfigValue<Boolean> VANILLA_INJECT_DISABLED = BUILDER
+            .comment("If true, TmT will not replace render mode of vanilla TiC tools and parts")
+            .comment("禁用原版注入，若为 true，TmT 将不会替换原版匠魂工具和部件的渲染方式")
+            .define("disable_vanilla_inject", false);
+
     private static final ForgeConfigSpec.ConfigValue<List<? extends String>> EXCLUDE_PAIRS = BUILDER
             .comment("List of <Part, Material> Pair to for exclusion, split by a '%'")
             .comment("'*' & 'modid:*' & 'modid:any/path/*' are supported as wildcards")
-            .comment("But '*%*' is not supported, I mean, why the hell would someone want use this?")
-            .comment("在这里列出要排除的 <工具部件，工具材料> 对，用一个'%'隔开两者")
+            .comment("But '*%*' is not supported, please consider set disable_vanilla_inject to true")
+            .comment("在这里列出要排除的 <工具部件，工具材料> 对，用一个 '%' 隔开两者")
             .comment("支持 '*' & 'modid:*' & 'modid:any/path/*' 格式作为通配符")
-            .comment("注意不支持 '*%*'，你想写这个不如直接卸了mod")
+            .comment("注意不支持 '*%*'，但可以考虑将 disable_vanilla_inject 设为 true")
             .defineListAllowEmpty("exclude_pairs", List.of(
                     "tconstruct:item/tool/armor/slime/helmet_skull%*",
                     "tconstruct:item/tool/parts/large_plate%tconstruct:pig_iron",
@@ -58,6 +64,12 @@ public class TmtConfig {
 
     // <editor-fold desc="Props">
 
+    @Getter private static boolean vanillaInjectDisabled = false;
+
+    private static void parseVanillaInject() {
+        vanillaInjectDisabled = VANILLA_INJECT_DISABLED.get();
+    }
+
     private static void parseExcludes() {
         var logger = LogUtils.getLogger();
 
@@ -81,7 +93,7 @@ public class TmtConfig {
             var mat = pairSpl[1].trim();
             if (part.equals("*") && mat.equals("*")) {
                 logger.warn("zh_cn: 我说不支持'*%*'你二龙马？");
-                logger.warn("en_us: Didn't I say '*%*' is fucking not supported?");
+                logger.warn("en_us: I DO said that '*%*' is not supported.");
             } else if (part.equals("*")) {
                 var rlp = checkResourceLocation(mat);
                 if (rlp.first) materials.prefixes().add(rlp.second);
@@ -128,5 +140,6 @@ public class TmtConfig {
     @SubscribeEvent
     static void onLoad(final ModConfigEvent event) {
         parseExcludes();
+        parseVanillaInject();
     }
 }

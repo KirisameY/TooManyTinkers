@@ -1,5 +1,6 @@
 package com.kirisamey.toomanytinkers.mixin;
 
+import com.kirisamey.toomanytinkers.configs.TmtConfig;
 import com.kirisamey.toomanytinkers.configs.TmtExcludes;
 import com.kirisamey.toomanytinkers.rendering.TmtAnimColorBakedQuad;
 import com.kirisamey.toomanytinkers.rendering.TmtRenderTypes;
@@ -43,6 +44,8 @@ public class ToolModelMixin {
             remap = false
     )
     private static RenderTypeGroup overrideRenderType(IGeometryBakingContext ctx, Operation<RenderTypeGroup> original) {
+        if (TmtConfig.isVanillaInjectDisabled()) return original.call(ctx);
+
         // todo: 这里得加个针对物品不使用shader的配置项
         return TmtRenderTypes.getTinkerMappingGroup();
     }
@@ -63,6 +66,8 @@ public class ToolModelMixin {
     private static MaterialRenderInfo.TintedSprite replaceNormalMatSprite(
             Function<Material, TextureAtlasSprite> spriteGetter, Material texture, MaterialVariantId material,
             Operation<MaterialRenderInfo.TintedSprite> original) {
+        if (TmtConfig.isVanillaInjectDisabled()) return original.call(spriteGetter, texture, material);
+
         var result = TmtLookupUtils.fixedGetMaterialSprite(
                 spriteGetter, texture, material, false, original::call, "getSmallMatSprite"
         );
@@ -103,6 +108,9 @@ public class ToolModelMixin {
     private static List<BakedQuad> replaceNormalQuadTints(
             int color, int tint, TextureAtlasSprite sprite, Transformation transform, int emissivity,
             @Nullable ItemLayerPixels pixels, @NotNull Operation<List<BakedQuad>> original) {
+        if (TmtConfig.isVanillaInjectDisabled())
+            return original.call(color, tint, sprite, transform, emissivity, pixels);
+
         var anim = TmtMixinUtils.ToolModel.animForNormalQuads;
         var excluded = TmtMixinUtils.ToolModel.excludedForNormalQuads;
         TmtMixinUtils.ToolModel.resetForNormalQuads();
@@ -134,6 +142,9 @@ public class ToolModelMixin {
             Function<Material, TextureAtlasSprite> spriteGetter, Material texture, MaterialVariantId material,
             int tintIndex, Transformation transformation, @Nullable ItemLayerPixels pixels,
             Operation<List<BakedQuad>> original) {
+        if (TmtConfig.isVanillaInjectDisabled())
+            return original.call(spriteGetter, texture, material, tintIndex, transformation, pixels);
+
         var pair = TmtLookupUtils.fixedGetMaterialSprite(spriteGetter, texture, material, true,
                 MaterialModel::getMaterialSprite, "getLargeMatSprite");
         var sprite = pair.first;

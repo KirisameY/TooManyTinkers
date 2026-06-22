@@ -1,5 +1,6 @@
 package com.kirisamey.toomanytinkers.mixin;
 
+import com.kirisamey.toomanytinkers.configs.TmtConfig;
 import com.kirisamey.toomanytinkers.configs.TmtExcludes;
 import com.kirisamey.toomanytinkers.rendering.TmtAnimColorBakedQuad;
 import com.kirisamey.toomanytinkers.rendering.TmtRenderTypes;
@@ -39,6 +40,8 @@ public class PartModelMixin {
             remap = false
     )
     private static RenderTypeGroup overrideRenderType(IGeometryBakingContext ctx, Operation<RenderTypeGroup> original) {
+        if (TmtConfig.isVanillaInjectDisabled()) return original.call(ctx);
+
         return TmtRenderTypes.getTinkerMappingGroup();
     }
 
@@ -58,6 +61,8 @@ public class PartModelMixin {
     private static MaterialRenderInfo.TintedSprite replaceSprite(
             Function<Material, TextureAtlasSprite> spriteGetter, Material texture, MaterialVariantId material,
             Operation<MaterialRenderInfo.TintedSprite> original) {
+        if (TmtConfig.isVanillaInjectDisabled()) return original.call(spriteGetter, texture, material);
+
         var result = TmtLookupUtils.fixedGetMaterialSprite(spriteGetter, texture, material, false, original::call, "getToolPartSprite");
         TmtMixinUtils.PartModel.animForQuads = result.second;
         TmtMixinUtils.PartModel.excludedForQuads = TmtExcludes.isExcluded(texture.texture(), material.getLocation('_'));
@@ -82,6 +87,8 @@ public class PartModelMixin {
     private static List<BakedQuad> replaceQuadTints(
             int color, int tint, TextureAtlasSprite sprite, Transformation transform, int emissivity,
             @NotNull Operation<List<BakedQuad>> original) {
+        if (TmtConfig.isVanillaInjectDisabled()) return original.call(color, tint, sprite, transform, emissivity);
+
         var anim = TmtMixinUtils.PartModel.animForQuads;
         var excluded = TmtMixinUtils.PartModel.excludedForQuads;
         TmtMixinUtils.PartModel.resetForQuads();
